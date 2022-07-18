@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.image.Image?>
+<?import javafx.scene.image.ImageView?>
+<?import javafx.scene.layout.AnchorPane?>
+<?import javafx.scene.text.Font?>
+
+
+<AnchorPane fx:id="root" prefHeight="400.0" prefWidth="600.0" xmlns="http://javafx.com/javafx/18" xmlns:fx="http://javafx.com/fxml/1" fx:controller="controller.AboutFormController">
+   <children>
+      <ImageView fx:id="imgLog" fitHeight="150.0" fitWidth="200.0" layoutX="224.0" layoutY="41.0" pickOnBounds="true" preserveRatio="true">
+         <image>
+            <Image url="@../image/Logo.png" />
+         </image>
+      </ImageView>
+      <Label alignment="CENTER" layoutX="1.0" layoutY="218.0" prefHeight="18.0" prefWidth="600.0" text="DEP-9 Text Editor">
+         <font>
+            <Font size="38.0" />
+         </font>
+      </Label>
+      <Label alignment="CENTER" layoutX="1.0" layoutY="268.0" prefHeight="18.0" prefWidth="600.0" text="v1.0.0" />
+      <Label alignment="CENTER" layoutX="-1.0" layoutY="308.0" prefHeight="18.0" prefWidth="600.0" text="Simple JavaFX Text Editor. Just for fun!" />
+      <Label alignment="CENTER" layoutX="1.0" layoutY="339.0" prefHeight="18.0" prefWidth="600.0" text="CopyRight @ 2022 DEP9. All Right Reserved" />
+   </children>
+</AnchorPane>

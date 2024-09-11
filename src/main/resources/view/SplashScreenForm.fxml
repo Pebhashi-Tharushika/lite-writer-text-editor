@@ -6,27 +6,37 @@
 <?import javafx.scene.layout.AnchorPane?>
 <?import javafx.scene.text.Font?>
 
-<AnchorPane prefHeight="315.0" prefWidth="683.0" style="-fx-background-color: rgba(0,0,0,0);" xmlns="http://javafx.com/javafx/18" xmlns:fx="http://javafx.com/fxml/1" fx:controller="controller.SplashScreenFormController">
+<AnchorPane prefHeight="444.0" prefWidth="949.0" style="-fx-background-color: rgba(0,0,0,0);" xmlns="http://javafx.com/javafx/19" xmlns:fx="http://javafx.com/fxml/1" fx:controller="controller.SplashScreenFormController">
    <children>
-      <ImageView fitHeight="315.0" fitWidth="454.0" pickOnBounds="true" preserveRatio="true">
+      <ImageView fitHeight="120.0" fitWidth="120.0" layoutX="50.0" layoutY="144.0" pickOnBounds="true" preserveRatio="true" AnchorPane.bottomAnchor="180.0" AnchorPane.leftAnchor="50.0" AnchorPane.rightAnchor="779.0" AnchorPane.topAnchor="144.0">
          <image>
-            <Image url="@../image/dots.gif" />
+            <Image url="@../image/letter-l.gif" />
          </image>
       </ImageView>
-      <AnchorPane layoutX="317.0" layoutY="1.0" prefHeight="315.0" prefWidth="374.0" style="-fx-background-color: yellow;">
+      <ImageView fitHeight="80.0" fitWidth="80.0" layoutX="151.0" layoutY="196.0" pickOnBounds="true" preserveRatio="true" AnchorPane.bottomAnchor="168.0" AnchorPane.leftAnchor="150.0">
+         <image>
+            <Image url="@../image/letter-w.gif" />
+         </image>
+      </ImageView>
+      <AnchorPane layoutX="298.0" prefHeight="444.0" prefWidth="651.0" style="-fx-background-color: gray;">
          <children>
-            <ImageView fitHeight="78.0" fitWidth="93.0" layoutX="145.0" layoutY="28.0" pickOnBounds="true" preserveRatio="true">
+            <ImageView fitHeight="148.0" fitWidth="241.0" layoutX="231.0" layoutY="40.0" pickOnBounds="true" preserveRatio="true">
                <image>
-                  <Image url="@../../../../../../../../../../Downloads/text.png" />
+                  <Image url="@../image/logo.png" />
                </image>
             </ImageView>
-            <Label alignment="CENTER" layoutY="124.0" prefHeight="18.0" prefWidth="364.0" text="DEP - 9 Text Editor">
+            <Label alignment="CENTER" layoutY="191.0" prefHeight="88.0" prefWidth="580.0" text="LiteWriter Text Editor" textFill="WHITE" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0">
                <font>
-                  <Font size="28.0" />
+                  <Font name="Uroob Regular" size="60.0" />
                </font>
             </Label>
-            <Label fx:id="lblStatus" alignment="CENTER" layoutX="1.0" layoutY="174.0" prefHeight="18.0" prefWidth="373.0" text="Loading ....." />
-            <Label alignment="CENTER" layoutX="1.0" layoutY="244.0" prefHeight="18.0" prefWidth="373.0" text="CopyRight @ 2022 DEP9. All Rights Reserved." />
+            <Label fx:id="lblStatus1" alignment="CENTER" layoutY="269.0" prefHeight="18.0" prefWidth="504.0" text="Craft Your Text with Ease" textFill="#e4dbdb" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0">
+               <font>
+                  <Font size="20.0" />
+               </font>
+            </Label>
+            <Label fx:id="lblStatus" alignment="CENTER" layoutY="334.0" prefHeight="18.0" prefWidth="504.0" text="Loading ....." textFill="#e4dbdb" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" />
+            <Label alignment="CENTER" layoutY="391.0" prefHeight="18.0" prefWidth="504.0" text="CopyRight @ 2022 MBPT. All Rights Reserved." textFill="#e4dbdb" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" />
          </children>
       </AnchorPane>
    </children>

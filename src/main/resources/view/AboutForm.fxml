@@ -6,21 +6,20 @@
 <?import javafx.scene.layout.AnchorPane?>
 <?import javafx.scene.text.Font?>
 
-
-<AnchorPane fx:id="root" prefHeight="400.0" prefWidth="600.0" xmlns="http://javafx.com/javafx/18" xmlns:fx="http://javafx.com/fxml/1" fx:controller="controller.AboutFormController">
+<AnchorPane fx:id="root" prefHeight="400.0" prefWidth="600.0" xmlns="http://javafx.com/javafx/19" xmlns:fx="http://javafx.com/fxml/1" fx:controller="controller.AboutFormController">
    <children>
-      <ImageView fx:id="imgLog" fitHeight="150.0" fitWidth="200.0" layoutX="224.0" layoutY="41.0" pickOnBounds="true" preserveRatio="true">
+      <ImageView fx:id="imgLog" fitHeight="150.0" fitWidth="200.0" layoutX="225.0" layoutY="36.0" pickOnBounds="true" preserveRatio="true">
          <image>
-            <Image url="@../image/Logo.png" />
+            <Image url="@../image/logo.png" />
          </image>
       </ImageView>
-      <Label alignment="CENTER" layoutX="1.0" layoutY="218.0" prefHeight="18.0" prefWidth="600.0" text="DEP-9 Text Editor">
+      <Label alignment="CENTER" layoutY="196.0" prefHeight="29.0" prefWidth="600.0" text="LightWriter Text Editor">
          <font>
-            <Font size="38.0" />
+            <Font name="Uroob Regular" size="48.0" />
          </font>
       </Label>
-      <Label alignment="CENTER" layoutX="1.0" layoutY="268.0" prefHeight="18.0" prefWidth="600.0" text="v1.0.0" />
-      <Label alignment="CENTER" layoutX="-1.0" layoutY="308.0" prefHeight="18.0" prefWidth="600.0" text="Simple JavaFX Text Editor. Just for fun!" />
-      <Label alignment="CENTER" layoutX="1.0" layoutY="339.0" prefHeight="18.0" prefWidth="600.0" text="CopyRight @ 2022 DEP9. All Right Reserved" />
+      <Label alignment="CENTER" layoutY="259.0" prefHeight="16.0" prefWidth="600.0" text="v1.0.0" />
+      <Label alignment="CENTER" layoutX="2.0" layoutY="311.0" prefHeight="16.0" prefWidth="600.0" text="Simple Java FX Text Editor. Craft Your Text with Ease. Just For Fun!" />
+      <Label alignment="CENTER" layoutY="344.0" prefHeight="14.0" prefWidth="600.0" text="Copyright  © 2022 MBPT. All Rights Reserved." />
    </children>
 </AnchorPane>

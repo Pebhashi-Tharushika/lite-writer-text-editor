@@ -1,11 +1,10 @@
-# DEP - 9 Text Editor
+# LiteWriter Text Editor
 
 A simple JavaFX text editor
 
-![](asset/TextEditor.png)
 
 ### Version
 v1.0.0
 
 ### License
-CopyRight &copy; 2022 DEP9. All Rights Reserved.
+CopyRight &copy; 2022 MBPT. All Rights Reserved.

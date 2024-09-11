@@ -21,10 +21,10 @@ public class AppInitializer extends Application {
         URL resource = this.getClass().getResource("/view/SplashScreenForm.fxml");
         Parent container = FXMLLoader.load(resource);
         Scene splashScene = new Scene(container);
-        splashScene.setFill(Color.TRANSPARENT);
+//        splashScene.setFill(Color.TRANSPARENT);
         primaryStage.initStyle(StageStyle.TRANSPARENT);
         primaryStage.setScene(splashScene);
         primaryStage.show();
-
+        primaryStage.centerOnScreen();
     }
 }

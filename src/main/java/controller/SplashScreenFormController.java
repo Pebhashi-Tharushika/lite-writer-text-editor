@@ -37,7 +37,7 @@ public class SplashScreenFormController {
         KeyFrame keyFrame3 = new KeyFrame(Duration.millis(2000), new EventHandler<ActionEvent>() {
             @Override
             public void handle(ActionEvent actionEvent) {
-                lblStatus.setText("Setup the UI...");
+                lblStatus.setText("Setup the UI Logic..!");
             }
         });
 
@@ -50,8 +50,10 @@ public class SplashScreenFormController {
                     Scene scene = new Scene(container);
                     Stage primaryStage = new Stage();
                     primaryStage.setScene(scene);
-                    primaryStage.setTitle("DEP 9 Text Editor");
+                    primaryStage.setTitle("LiteWriter Text Editor");
                     primaryStage.show();
+                    primaryStage.centerOnScreen();
+                    primaryStage.setResizable(false);
                     lblStatus.getScene().getWindow().hide();
                 } catch (IOException e) {
                     throw new RuntimeException(e);

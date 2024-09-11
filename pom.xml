@@ -4,9 +4,9 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>lk.ijse.dep9</groupId>
-    <artifactId>java-fx-demo-6</artifactId>
-    <version>1.0-SNAPSHOT</version>
+    <groupId>lk.mbpt.lwte</groupId>
+    <artifactId>litewriter-text-editor</artifactId>
+    <version>1.0.0</version>
 
     <properties>
         <maven.compiler.source>11</maven.compiler.source>

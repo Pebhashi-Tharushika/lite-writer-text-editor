@@ -3,7 +3,6 @@
 LiteWriter is a simple and user-friendly text editor application built using JavaFX. This text editor allows users to create, open, edit, and save plain text documents with a variety of formatting options. It includes essential file and edit menu functionalities as well as a rich toolbar for text formatting.
 
 ## Features
-<hr>
 
 ### Menu Bar
 The text editor includes the following menus and menu items with shortcuts:
@@ -41,9 +40,8 @@ The toolbar allows users to apply various formatting options to the text, includ
 ### Other Features
 - **Scrollable Text Area**: The text area supports scrolling for longer documents.
 
-## Installation
-<hr>
 
+## Installation
 1. Clone the repository:
     ```bash
     git clone https://github.com/your-username/text-editor-app.git
@@ -56,15 +54,12 @@ The toolbar allows users to apply various formatting options to the text, includ
     ```
 
 ## Usage
-<hr>
-
 - Use the **File** menu to manage documents.
 - Use the **Edit** menu or the toolbar for text formatting and editing.
 - Type and format plain text in the text area as desired.
 
-## Application Preview
-<hr>
 
+## Application Preview
 - SplashScreen
 ![](asset/splashscreen.gif)
 <br><br>
@@ -72,14 +67,13 @@ The toolbar allows users to apply various formatting options to the text, includ
 ![](asset/menubar.gif)
 <br><br>
 - "About" menu item
-![](asset/about2.gif)
+![](asset/about-window.gif)
 <br><br>
 - Text formatting & scrollable text area
-![](asset/text-formatting.png)
+![](asset/text-formatting.png)<br><br>
 ![](asset/scrollable-text-area.png)
 
-
-
+  
 ## Version
 v1.0.0
 

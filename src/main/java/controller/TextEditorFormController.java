@@ -23,8 +23,7 @@ import javafx.stage.Modality;
 import javafx.stage.Stage;
 
 import java.awt.print.PageFormat;
-import java.io.File;
-import java.io.IOException;
+import java.io.*;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -89,7 +88,7 @@ public class TextEditorFormController {
                             printerJob.endJob();
                             showAlert(Alert.AlertType.INFORMATION, "Document printed successfully!");
                         } else {
-                            showAlert(Alert.AlertType.ERROR,"Error printing document. Try again.");
+                            showAlert(Alert.AlertType.ERROR, "Error printing document. Try again.");
                         }
                     }
                 } else {
@@ -177,7 +176,17 @@ public class TextEditorFormController {
     }
 
     private void saveFile(Path filePath) {
-        try {
+        try (FileOutputStream fos = new FileOutputStream(filePath.toFile(), false)) {
+            String text = txtEditor.getHtmlText();
+            byte[] bytes = text.getBytes();
+            fos.write(bytes);
+            currentFilePath = filePath;
+            showAlert(Alert.AlertType.INFORMATION, "File saved successfully!");
+        } catch (IOException e) {
+            showAlert(Alert.AlertType.ERROR, "Error saving file: " + e.getMessage());
+        }
+
+        /*try {
             WebEngine webEngine = getWebEngine();
             if (webEngine != null) {
                 String htmlContent = (String) webEngine.executeScript("document.documentElement.outerHTML");
@@ -187,28 +196,48 @@ public class TextEditorFormController {
             }
         } catch (IOException e) {
             showAlert(Alert.AlertType.ERROR, "Error saving file: " + e.getMessage());
-        }
+        }*/
     }
 
     private void saveAs() {
         FileChooser fileChooser = new FileChooser();
         fileChooser.setTitle("Save As");
+        fileChooser.setInitialFileName(currentFilePath == null ? "untitled" : currentFilePath.getFileName().toString());
+        File file = fileChooser.showSaveDialog(txtEditor.getScene().getWindow());
+        if (file == null) return;
+        saveFile(file.toPath());
+
+
+        /*FileChooser fileChooser = new FileChooser();
+        fileChooser.setTitle("Save As");
         File file = new File(System.getProperty("user.home"));
         fileChooser.setInitialDirectory(file);
         fileChooser.setInitialFileName(currentFilePath == null ? "untitled" : currentFilePath.getFileName().toString());
-
-        fileChooser.getExtensionFilters().addAll(
-                new FileChooser.ExtensionFilter("All Files", "*.*")
-        );
+        fileChooser.getExtensionFilters().addAll(new FileChooser.ExtensionFilter("All Files", "*.*"));
 
         File saveLocation = fileChooser.showSaveDialog(txtEditor.getScene().getWindow()); //display as modal window
         if (saveLocation != null) {
             saveFile(saveLocation.toPath());
-        }
+        }*/
     }
 
     private void openFile() {
         FileChooser fileChooser = new FileChooser();
+        fileChooser.setTitle("Open a text file");
+        File file = fileChooser.showOpenDialog(txtEditor.getScene().getWindow());
+        if (file == null) return;
+
+        try(FileInputStream fis = new FileInputStream(file)) {
+            byte[] bytes = fis.readAllBytes();
+            txtEditor.setHtmlText(new String(bytes));
+            currentFilePath = file.toPath();
+            showAlert(Alert.AlertType.INFORMATION, "File opened successfully!");
+        } catch (IOException e) {
+            showAlert(Alert.AlertType.ERROR, "Error opening file: " + e.getMessage());
+        }
+
+
+        /*FileChooser fileChooser = new FileChooser();
         fileChooser.setTitle("Open File");
 //        fileChooser.setInitialDirectory(new File(".")); // initial directory is the current directory
         fileChooser.setInitialDirectory(new File(System.getProperty("user.home"))); // initial directory is home directory
@@ -229,7 +258,7 @@ public class TextEditorFormController {
             } catch (IOException e) {
                 showAlert(Alert.AlertType.ERROR, "Error opening file: " + e.getMessage());
             }
-        }
+        }*/
     }
 
     private void showAlert(Alert.AlertType alertType, String message) {

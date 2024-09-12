@@ -12,9 +12,7 @@ import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.MenuItem;
-import javafx.scene.input.Clipboard;
-import javafx.scene.input.ClipboardContent;
-import javafx.scene.input.DataFormat;
+import javafx.scene.input.*;
 import javafx.scene.web.HTMLEditor;
 import javafx.scene.web.WebEngine;
 import javafx.scene.web.WebView;
@@ -27,6 +25,7 @@ import java.io.*;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 
 public class TextEditorFormController {
     public MenuItem mnuNew;
@@ -44,8 +43,19 @@ public class TextEditorFormController {
 
     private final Clipboard clipboard = Clipboard.getSystemClipboard();
     private Path currentFilePath;
+    private WebEngine webEngine;
 
     public void initialize() {
+
+        WebView webView = (WebView) txtEditor.lookup("WebView"); // Get internal WebView of  HTMLEditor
+
+        if (webView != null) {
+            webEngine = webView.getEngine(); // Get WebEngine associated with HTMLEditor
+
+            // Set drag event handlers for WebView's text area
+            webView.setOnDragOver(this::rootOnDragOver);
+            webView.setOnDragDropped(this::rootOnDragDropped);
+        }
 
         mnuNew.setOnAction(new EventHandler<ActionEvent>() {
             @Override
@@ -115,9 +125,8 @@ public class TextEditorFormController {
         mnuCut.setOnAction(new EventHandler<ActionEvent>() {
             @Override
             public void handle(ActionEvent actionEvent) {
-                WebEngine webEngine = getWebEngine();
-                setContentOnSysClipboard(webEngine);
                 if (webEngine != null) {
+                    setContentOnSysClipboard(webEngine);
                     webEngine.executeScript("window.getSelection().deleteFromDocument()"); // Remove the selected text from the HTMLEditor
                 }
             }
@@ -126,27 +135,28 @@ public class TextEditorFormController {
         mnuCopy.setOnAction(new EventHandler<ActionEvent>() {
             @Override
             public void handle(ActionEvent actionEvent) {
-                setContentOnSysClipboard(getWebEngine());
+                if (webEngine != null) setContentOnSysClipboard(webEngine);
             }
         });
 
         mnuPaste.setOnAction(new EventHandler<ActionEvent>() {
             @Override
             public void handle(ActionEvent actionEvent) {
-                WebEngine webEngine = getWebEngine();
-                Object clipboardContent = clipboard.getContent(DataFormat.PLAIN_TEXT); // Get clipboard content
+                if (webEngine != null) {
+                    Object clipboardContent = clipboard.getContent(DataFormat.PLAIN_TEXT); // Get clipboard content
 
-                if (clipboardContent instanceof String) {
-                    String pastedText = (String) clipboardContent; // Get the pasted text
-                    webEngine.executeScript("document.execCommand('insertText', false, '" + pastedText + "')"); // Execute a JavaScript script to insert the pasted text at the current cursor position
+                    if (clipboardContent instanceof String) {
+                        String pastedText = (String) clipboardContent; // Get the pasted text
+                        webEngine.executeScript("document.execCommand('insertText', false, '" + pastedText + "')"); // Execute a JavaScript script to insert the pasted text at the current cursor position
+                    }
                 }
+
             }
         });
 
         mnuSelectAll.setOnAction(new EventHandler<ActionEvent>() {
             @Override
             public void handle(ActionEvent actionEvent) {
-                WebEngine webEngine = getWebEngine();
                 if (webEngine != null) {
                     webEngine.executeScript("document.body.focus(); document.execCommand('selectAll', false, null);"); // Execute a JavaScript script to select all texts
                 }
@@ -227,7 +237,7 @@ public class TextEditorFormController {
         File file = fileChooser.showOpenDialog(txtEditor.getScene().getWindow());
         if (file == null) return;
 
-        try(FileInputStream fis = new FileInputStream(file)) {
+        try (FileInputStream fis = new FileInputStream(file)) {
             byte[] bytes = fis.readAllBytes();
             txtEditor.setHtmlText(new String(bytes));
             currentFilePath = file.toPath();
@@ -266,12 +276,6 @@ public class TextEditorFormController {
         alert.showAndWait();
     }
 
-    /* Get WebEngine associated with HTMLEditor */
-    private WebEngine getWebEngine() {
-        WebView webView = (WebView) txtEditor.lookup(".web-view"); // Get WebView
-        return webView.getEngine();
-    }
-
     private void setContentOnSysClipboard(WebEngine webEngine) {
         if (webEngine != null) {
             Object selectedText = webEngine.executeScript("window.getSelection().toString()"); // Execute a JavaScript script to get the selected text
@@ -283,6 +287,34 @@ public class TextEditorFormController {
                 clipboard.setContent(clipboardContent);
             }
         }
+    }
+
+    public void rootOnDragOver(DragEvent dragEvent) {
+        Dragboard dragboard = dragEvent.getDragboard();
+        if (dragboard.hasFiles()) {
+            dragEvent.acceptTransferModes(TransferMode.COPY_OR_MOVE);
+        }
+        dragEvent.consume();
+    }
+
+    public void rootOnDragDropped(DragEvent dragEvent) {
+        Dragboard dragboard = dragEvent.getDragboard();
+        boolean success = false;
+        if (dragboard.hasFiles()) {
+            List<File> files = dragboard.getFiles();
+            if (!files.isEmpty()) {
+                File droppedFile = files.get(0);
+                try (FileInputStream fis = new FileInputStream(droppedFile)) {
+                    byte[] bytes = fis.readAllBytes();
+                    txtEditor.setHtmlText(new String(bytes));
+                    success = true;
+                } catch (IOException e) {
+                    showAlert(Alert.AlertType.ERROR, e.getMessage());
+                }
+            }
+        }
+        dragEvent.setDropCompleted(success);
+        dragEvent.consume();
     }
 
 

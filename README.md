@@ -1,6 +1,6 @@
 # LiteWriter Text Editor
 
-LiteWriter is a simple and user-friendly text editor application built using JavaFX. This text editor allows users to create, open, edit, and save plain text documents with a variety of formatting options. It includes essential file and edit menu functionalities as well as a rich toolbar for text formatting.
+LiteWriter is a simple and user-friendly text editor application built using JavaFX. This text editor allows users to create, open, edit and save plain text documents with a variety of formatting options. It includes essential file and edit menu functionalities as well as a rich toolbar for text formatting.
 
 ## Features
 
@@ -53,12 +53,6 @@ The toolbar allows users to apply various formatting options to the text, includ
     mvn clean javafx:run
     ```
 
-## Usage
-- Use the **File** menu to manage documents.
-- Use the **Edit** menu or the toolbar for text formatting and editing.
-- Type and format plain text in the text area as desired.
-
-
 ## Application Preview
 - SplashScreen
 ![](asset/splashscreen.gif)
@@ -78,4 +72,5 @@ The toolbar allows users to apply various formatting options to the text, includ
 v1.0.0
 
 ## License
+This project is licensed under the **MIT License**. See the [LICENSE](LICENSE) file for details.<br>
 CopyRight &copy; 2022 MBPT. All Rights Reserved.

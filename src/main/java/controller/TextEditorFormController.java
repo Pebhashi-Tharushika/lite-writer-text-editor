@@ -143,16 +143,23 @@ public class TextEditorFormController {
             @Override
             public void handle(ActionEvent actionEvent) {
                 if (webEngine != null) {
-                    Object clipboardContent = clipboard.getContent(DataFormat.PLAIN_TEXT); // Get clipboard content
+                    Object clipboardHtmlContent = clipboard.getContent(DataFormat.HTML); // Get clipboard HTML content if HTML content is available in the clipboard
 
-                    if (clipboardContent instanceof String) {
-                        String pastedText = (String) clipboardContent; // Get the pasted text
-                        webEngine.executeScript("document.execCommand('insertText', false, '" + pastedText + "')"); // Execute a JavaScript script to insert the pasted text at the current cursor position
+                    if (clipboardHtmlContent instanceof String) {
+                        String pastedHtml = (String) clipboardHtmlContent;
+                        webEngine.executeScript("document.execCommand('insertHTML', false, '" + pastedHtml + "')");
+                    } else {
+                        Object clipboardTextContent = clipboard.getContent(DataFormat.PLAIN_TEXT); // Get clipboard plain text content if no HTML content is available
+                        if (clipboardTextContent instanceof String) {
+                            String pastedText = (String) clipboardTextContent;
+                            String escapedHtml = escapeForHtml(pastedText); // Escape special characters for HTML
+                            webEngine.executeScript("document.execCommand('insertHTML', false, '" + escapedHtml + "')"); // Insert plain text, converted to HTML
+                        }
                     }
                 }
-
             }
         });
+
 
         mnuSelectAll.setOnAction(new EventHandler<ActionEvent>() {
             @Override
@@ -183,6 +190,16 @@ public class TextEditorFormController {
             }
         });
 
+    }
+
+    private String escapeForHtml(String text) {
+        return text.replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace("'", "\\'")
+                .replace("\"", "\\\"")
+                .replace("\n", "<br>")    // Convert newlines to HTML <br> tags
+                .replace("\r", "");       // Remove carriage returns
     }
 
     private void saveFile(Path filePath) {
@@ -278,12 +295,25 @@ public class TextEditorFormController {
 
     private void setContentOnSysClipboard(WebEngine webEngine) {
         if (webEngine != null) {
-            Object selectedText = webEngine.executeScript("window.getSelection().toString()"); // Execute a JavaScript script to get the selected text
+            // Execute a JavaScript script to get full HTML of the selected content
+            Object selectedHtml = webEngine.executeScript(
+                    "var sel = window.getSelection();" +
+                            "if (sel.rangeCount > 0) {" +
+                            "    var range = sel.getRangeAt(0);" +
+                            "    var div = document.createElement('div');" +
+                            "    div.appendChild(range.cloneContents());" +
+                            "    div.innerHTML;" +
+                            "} else { '' }"
+            );
 
-            if (selectedText instanceof String) {
-                String selectedString = (String) selectedText;
+            if (selectedHtml instanceof String) {
+                String selectedString = (String) selectedHtml;
                 ClipboardContent clipboardContent = new ClipboardContent();
-                clipboardContent.putString(selectedString);
+                clipboardContent.putHtml(selectedString); // Put HTML content into clipboard
+
+                // Also add plain text fallback
+                clipboardContent.putString(selectedString.replaceAll("<[^>]+>", ""));  // Strip HTML tags for plain text
+
                 clipboard.setContent(clipboardContent);
             }
         }

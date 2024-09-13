@@ -39,8 +39,7 @@ The toolbar allows users to apply various formatting options to the text, includ
 
 ### Other Features
 - **Scrollable Text Area**: The text area supports scrolling for longer documents.
-
-
+- **Drag-and-Drop Support**: Drag and drop text files directly onto the editor to load and display the file content.
 ## Installation
 1. Clone the repository:
     ```bash

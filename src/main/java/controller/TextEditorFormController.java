@@ -1,9 +1,10 @@
 package controller;
 
+
+import netscape.javascript.JSObject;
+
 import javafx.application.Platform;
-import javafx.beans.binding.Bindings;
-import javafx.beans.property.SimpleStringProperty;
-import javafx.beans.property.StringProperty;
+import javafx.concurrent.Worker;
 import javafx.event.ActionEvent;
 import javafx.event.Event;
 import javafx.event.EventHandler;
@@ -65,45 +66,72 @@ public class TextEditorFormController {
     private final ArrayList<SearchResult> searchResultList = new ArrayList<>();
     private int pos = 0;
 
-    public void initialize() {
+    private boolean isSelected = false;
 
+
+    public void initialize() {
         removeTabPane();
 
         txtFind.textProperty().addListener((ov, previous, current) -> calculateSearchResult());
 
-        // Create a StringProperty to hold the HTML content
-        StringProperty htmlContentProperty = new SimpleStringProperty();
-
-        // Bind the StringProperty to the HTMLEditor's HTML content
-        htmlContentProperty.bind(Bindings.createStringBinding(
-                txtEditor::getHtmlText,  // Supplier to get the HTML content
-                txtEditor.getStyleClass() // This is just a dummy dependency, replace with an appropriate property
-        ));
-
-        // Add a listener to the StringProperty
-        htmlContentProperty.addListener((observable, oldValue, newValue) -> {
-            calculateSearchResult();
-        });
-
-//        txtEditor.textProperty().addListener((ov, previous, current) -> calculateSearchResult());
-
-
-        WebView webView = (WebView) txtEditor.lookup("WebView"); // Get internal WebView of  HTMLEditor
+        WebView webView = (WebView) txtEditor.lookup("WebView"); // Get internal WebView of HTMLEditor
 
         if (webView != null) {
+
+            // Set up the focus listener for the text editor
+            webView.focusedProperty().addListener((obs, oldState, newState) -> {
+                if (oldState && !newState) {
+                    if (btnUp.isFocused()) {
+                        pos = 1;
+                    } else if (btnDown.isFocused()) {
+                        pos = -1;
+                    }
+                }
+            });
+
             webEngine = webView.getEngine(); // Get WebEngine associated with HTMLEditor
 
             // Set drag event handlers for WebView's text area
             webView.setOnDragOver(this::rootOnDragOver);
             webView.setOnDragDropped(this::rootOnDragDropped);
+
+            // Expose JavaFX methods to JavaScript (use JSObject)
+            webEngine.getLoadWorker().stateProperty().addListener((obs, oldState, newState) -> {
+                if (newState == Worker.State.SUCCEEDED) {
+                    // Make the current class instance available to JavaScript
+                    JSObject window = (JSObject) webEngine.executeScript("window");
+                    window.setMember("java", this);
+
+                    // Set up the MutationObserver to detect changes in the HTML editor
+                    webEngine.executeScript(
+                            "var timeoutId;" +  // Declare a variable to handle the debounce timeout
+                                    "var observer = new MutationObserver(function(mutations) {" +
+                                    "    var relevantChange = false;" + // Flag to track if relevant changes occurred
+                                    "    mutations.forEach(function(mutation) {" +
+                                    "        if (mutation.type === 'characterData' || mutation.type === 'childList') {" +
+                                    "            relevantChange = true;" + // If relevant change detected, set the flag
+                                    "        }" +
+                                    "    });" +
+                                    "    if (relevantChange) { " +
+                                    "        clearTimeout(timeoutId);" +  // Clear the previous timeout if still active
+                                    "        timeoutId = setTimeout(function() { " +  // Set a new timeout (debounce)
+                                    "            console.log('Debounced and filtered content change');" +
+                                    "                java.calculateSearchResult();" +
+                                    "        }, 200);" +  // Debounce interval (200ms)
+                                    "    }" +
+                                    "});" +
+                                    "observer.observe(document.body, { childList: true, subtree: true, characterData: true });"
+                    );
+                }
+            });
+
+
         }
 
-        mnuNew.setOnAction(new EventHandler<ActionEvent>() {
-            @Override
-            public void handle(ActionEvent actionEvent) {
-                txtEditor.setHtmlText("");
-                currentFilePath = null;
-            }
+
+        mnuNew.setOnAction(actionEvent -> {
+            txtEditor.setHtmlText("");
+            currentFilePath = null;
         });
 
         mnuSave.setOnAction(new EventHandler<ActionEvent>() {
@@ -232,6 +260,10 @@ public class TextEditorFormController {
             @Override
             public void handle(ActionEvent actionEvent) {
                 URL resource = this.getClass().getResource("/view/AboutForm.fxml");
+                if (resource == null) {
+                    showAlert(Alert.AlertType.ERROR, "Resource not found");
+                    return;
+                }
                 try {
                     Parent container = FXMLLoader.load(resource);
                     Scene aboutScene = new Scene(container);
@@ -248,7 +280,13 @@ public class TextEditorFormController {
             }
         });
 
+        txtFind.focusedProperty().addListener((obs, oldState, newState) -> {
+            pos = 0;
+            select();
+        });
+
     }
+
 
     private String escapeForHtml(String text) {
         return text.replace("&", "&amp;")
@@ -409,11 +447,21 @@ public class TextEditorFormController {
 
     /* find and replace */
 
-    private void calculateSearchResult() {
+
+    // This method will be called when content changes in the HTMLEditor and textField (Fiind)
+    public void calculateSearchResult() {
         String query = txtFind.getText();
         searchResultList.clear();
         pos = 0;
-        deselectHtmlEditor();
+
+        if ((txtEditor.isFocused() && isSelected) || txtFind.isFocused() || btnDown.isFocused() || btnUp.isFocused()) {
+            deselectHtmlEditor();
+        }
+
+        if (query == null || query.isEmpty()) {
+            lblResults.setText(String.format("%d Results", 0));
+            return;
+        }
 
         Pattern pattern;
         try {
@@ -421,63 +469,112 @@ public class TextEditorFormController {
         } catch (RuntimeException e) {
             return;
         }
-        Matcher matcher = pattern.matcher(getPlainTextFromHtmlEditor());
 
-        while (matcher.find()) {
-            int start = matcher.start();
-            int end = matcher.end();
-            SearchResult result = new SearchResult(start, end);
-            searchResultList.add(result);
-        }
 
-        lblResults.setText(String.format("%d Results", searchResultList.size()));
+        // Debounce (optional, adjust timeout if needed)
+        new Thread(() -> {
+            try {
+                Thread.sleep(200); // Debounce delay (adjust as needed)
 
-        select();
+                // Access UI elements only on FX application thread
+                Platform.runLater(() -> {
+                    if (webEngine != null) {
+                        Matcher matcher = pattern.matcher(getPlainTextFromHtmlEditor(webEngine));
+                        while (matcher.find()) {
+                            int start = matcher.start();
+                            int end = matcher.end();
+                            SearchResult result = new SearchResult(start, end);
+                            searchResultList.add(result);
+                        }
+
+                        lblResults.setText(String.format("%d Results", searchResultList.size()));
+
+                        if (!txtEditor.isFocused() && (txtFind.isFocused() || btnUp.isFocused() || btnDown.isFocused())) {
+                            select(); // Highlight the first search result (if any)
+                        }
+                    }
+                });
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+
+        }).start();
     }
+
 
     private void deselectHtmlEditor() {
         if (webEngine != null) {
-            webEngine.executeScript("window.getSelection().removeAllRanges();");  // Execute JavaScript to deselect the text
+            webEngine.executeScript("window.getSelection().removeAllRanges();"); // Deselect text using JavaScript
+            isSelected = false;
         }
     }
 
-    private String getPlainTextFromHtmlEditor() {
-        String htmlContent = txtEditor.getHtmlText(); // Get the HTML content
-        return htmlContent.replaceAll("<[^>]*>", "");
+
+    private void selectRangeInHtmlEditor(int start, int end) {
+        if (webEngine != null) {
+            // JavaScript to traverse the text nodes and select the correct range
+            String script = String.format(
+                    "function selectTextInRange(start, end) {" +
+                            "    var selection = window.getSelection();" +
+                            "    var range = document.createRange();" +
+                            "    var textNode;" +
+                            "    var charCount = 0;" +
+                            "    var nodeStack = [document.body];" + // Stack to traverse the DOM
+                            "    while (nodeStack.length > 0) {" +
+                            "        var node = nodeStack.pop();" +
+                            "        if (node.nodeType === Node.TEXT_NODE) {" + // Check if the node is a text node
+                            "            var textLength = node.textContent.length;" +
+                            "            if (charCount + textLength >= start) {" +
+                            "                textNode = node;" +
+                            "                break;" + // We found the start node
+                            "            }" +
+                            "            charCount += textLength;" + // Count the total number of characters it has traversed so far
+                            "        } else if (node.nodeType === Node.ELEMENT_NODE) {" +
+                            "            for (var i = node.childNodes.length - 1; i >= 0; i--) {" +
+                            "                nodeStack.push(node.childNodes[i]);" +
+                            "            }" +
+                            "        }" +
+                            "    }" +
+                            "    if (textNode) {" +
+                            "        range.setStart(textNode, start - charCount);" + // Adjust start index
+                            "        range.setEnd(textNode, end - charCount);" +     // Adjust end index
+                            "        selection.removeAllRanges();" +                 // Clear any previous selection
+                            "        selection.addRange(range);" +                   // Add the new range
+                            "    }" +
+                            "}" +
+                            "selectTextInRange(%d, %d);", start, end);
+
+            webEngine.executeScript(script); // Execute the JavaScript to select the text
+            isSelected = true;
+        }
+    }
+
+
+    private String getPlainTextFromHtmlEditor(WebEngine webEngine) {
+        Object htmlContent = webEngine.executeScript("document.body.innerText");
+        String plainText = "";
+        if (htmlContent instanceof String) {
+            plainText = (String) htmlContent;
+        }
+        System.out.println("Plain text: " + plainText);
+        return plainText;
     }
 
 
     private void select() {
         if (searchResultList.isEmpty()) return;
+        System.out.println("pos: " + pos);
         SearchResult searchResult = searchResultList.get(pos);
         selectRangeInHtmlEditor(searchResult.getStart(), searchResult.getEnd());
         lblResults.setText(String.format("%d/%d Results", (pos + 1), searchResultList.size()));
+
     }
-
-
-    private void selectRangeInHtmlEditor(int start, int end) {
-
-        if (webEngine != null) {
-            // Inject JavaScript to select the text range
-            String script = String.format(
-                    "var range = document.createRange();" +
-                            "var selection = window.getSelection();" +
-                            "var node = document.body;" + // Assuming the content is within the body tag
-                            "range.setStart(node.firstChild, %d);" +  // Start position (character index)
-                            "range.setEnd(node.firstChild, %d);" +    // End position (character index)
-                            "selection.removeAllRanges();" +          // Clear any previous selection
-                            "selection.addRange(range);", start, end);
-
-
-            webEngine.executeScript(script); // Execute the JavaScript to select the text
-        }
-    }
-
 
     public void btnDownOnAction(ActionEvent actionEvent) {
         pos++;
-        if (pos == searchResultList.size()) {
+        if (pos >= searchResultList.size()) {
             pos = -1;
+            System.out.println("POS = "+ pos);
             return;
         }
         select();
@@ -487,6 +584,7 @@ public class TextEditorFormController {
         pos--;
         if (pos < 0) {
             pos = searchResultList.size();
+            System.out.println("POS = "+ pos);
             return;
         }
         select();
@@ -506,7 +604,7 @@ public class TextEditorFormController {
         removeTabPane();
     }
 
-    private void removeTabPane(){
+    private void removeTabPane() {
         pneContainer.getChildren().remove(pneFindAndReplace); // Remove the TabPane from the layout
         AnchorPane.setTopAnchor(txtEditor, AnchorPane.getTopAnchor(pneFindAndReplace)); // Move HTMLEditor up by setting the same top anchor as TabPane had
     }

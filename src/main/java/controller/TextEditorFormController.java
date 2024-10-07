@@ -528,45 +528,45 @@ public class TextEditorFormController {
 
 
     private void selectRangeInHtmlEditor(int start, int end) {
-    if (webEngine != null) {
-        // JavaScript to traverse the text nodes and select the correct range
-        String script = String.format(
-                "function selectTextInRange(start, end) {" +
-                        "    var selection = window.getSelection();" +
-                        "    var range = document.createRange();" +
-                        "    var textNode = null;" +
-                        "    var charCount = 0;" +
-                        "    var nodeStack = [document.body];" + // Stack to traverse the DOM
-                        "    while (nodeStack.length > 0) {" +
-                        "        var node = nodeStack.pop();" +
-                        "        if (node.nodeType === Node.TEXT_NODE) {" + // Check if the node is a text node
-                        "            var textLength = node.textContent.length;" +
-                        "            if (charCount + textLength > start) {" +
-                        "                textNode = node;" +
-                        "                var adjustedStart = Math.max(0, start - charCount);" +
-                        "                var adjustedEnd = Math.min(node.textContent.length, end - charCount);" +
-                        "                if (adjustedStart < adjustedEnd) {" +
-                        "                    range.setStart(textNode, adjustedStart);" + // Adjust start index
-                        "                    range.setEnd(textNode, adjustedEnd);" + // Adjust end index
-                        "                    selection.removeAllRanges();" + // Clear any previous selection
-                        "                    selection.addRange(range);" + // Add the new range
-                        "                    break;" + // Stop once selection is made for the current node
-                        "                }" +
-                        "            }" +
-                        "            charCount += textLength;" + // Count the total number of characters it has traversed so far
-                        "        } else if (node.nodeType === Node.ELEMENT_NODE && node.tagName !== 'BR') {" +
-                        "            for (var i = node.childNodes.length - 1; i >= 0; i--) {" +
-                        "                nodeStack.push(node.childNodes[i]);" +
-                        "            }" +
-                        "        }" +
-                        "    }" +
-                        "}" +
-                        "selectTextInRange(%d, %d);", start, end);
+        if (webEngine != null) {
+            // JavaScript to traverse the text nodes and select the correct range
+            String script = String.format(
+                    "function selectTextInRange(start, end) {" +
+                            "    var selection = window.getSelection();" +
+                            "    var range = document.createRange();" +
+                            "    var textNode = null;" +
+                            "    var charCount = 0;" +
+                            "    var nodeStack = [document.body];" + // Stack to traverse the DOM
+                            "    while (nodeStack.length > 0) {" +
+                            "        var node = nodeStack.pop();" +
+                            "        if (node.nodeType === Node.TEXT_NODE) {" + // Check if the node is a text node
+                            "            var textLength = node.textContent.length;" +
+                            "            if (charCount + textLength > start) {" +
+                            "                textNode = node;" +
+                            "                var adjustedStart = Math.max(0, start - charCount);" +
+                            "                var adjustedEnd = Math.min(node.textContent.length, end - charCount);" +
+                            "                if (adjustedStart < adjustedEnd) {" +
+                            "                    range.setStart(textNode, adjustedStart);" + // Adjust start index
+                            "                    range.setEnd(textNode, adjustedEnd);" + // Adjust end index
+                            "                    selection.removeAllRanges();" + // Clear any previous selection
+                            "                    selection.addRange(range);" + // Add the new range
+                            "                    break;" + // Stop once selection is made for the current node
+                            "                }" +
+                            "            }" +
+                            "            charCount += textLength;" + // Count the total number of characters it has traversed so far
+                            "        } else if (node.nodeType === Node.ELEMENT_NODE && node.tagName !== 'BR') {" +
+                            "            for (var i = node.childNodes.length - 1; i >= 0; i--) {" +
+                            "                nodeStack.push(node.childNodes[i]);" +
+                            "            }" +
+                            "        }" +
+                            "    }" +
+                            "}" +
+                            "selectTextInRange(%d, %d);", start, end);
 
-        webEngine.executeScript(script); // Execute the JavaScript to select the text
-        isSelected = true;
+            webEngine.executeScript(script); // Execute the JavaScript to select the text
+            isSelected = true;
+        }
     }
-}
 
 
     private String getPlainTextFromHtmlEditor(WebEngine webEngine, List<Integer> newlineOffsets) {
@@ -606,6 +606,11 @@ public class TextEditorFormController {
     public void btnDownOnAction(ActionEvent actionEvent) {
         pos++;
         if (pos >= searchResultList.size()) {
+            if (pos == searchResultList.size() + 1) {
+                pos = 1;
+                select();
+                return;
+            }
             pos = -1;
             System.out.println("POS = " + pos);
             return;
@@ -616,6 +621,11 @@ public class TextEditorFormController {
     public void btnUpOnAction(ActionEvent actionEvent) {
         pos--;
         if (pos < 0) {
+            if (pos < -1) {
+                pos = searchResultList.size() - 2;
+                select();
+                return;
+            }
             pos = searchResultList.size();
             System.out.println("POS = " + pos);
             return;

@@ -470,6 +470,7 @@ public class TextEditorFormController {
             return;
         }
 
+        List<Integer> newlineOffsets = new ArrayList<>();
 
         // Debounce (optional, adjust timeout if needed)
         new Thread(() -> {
@@ -479,11 +480,14 @@ public class TextEditorFormController {
                 // Access UI elements only on FX application thread
                 Platform.runLater(() -> {
                     if (webEngine != null) {
-                        Matcher matcher = pattern.matcher(getPlainTextFromHtmlEditor(webEngine));
+                        String plainText = getPlainTextFromHtmlEditor(webEngine, newlineOffsets);
+                        Matcher matcher = pattern.matcher(plainText);
                         while (matcher.find()) {
                             int start = matcher.start();
                             int end = matcher.end();
-                            SearchResult result = new SearchResult(start, end);
+                            int adjustedStart = adjustForOffsets(start, newlineOffsets);
+                            int adjustedEnd = adjustForOffsets(end, newlineOffsets);
+                            SearchResult result = new SearchResult(adjustedStart, adjustedEnd);
                             searchResultList.add(result);
                         }
 
@@ -501,6 +505,19 @@ public class TextEditorFormController {
         }).start();
     }
 
+    // adjust positions based on newline offsets
+    private int adjustForOffsets(int position, List<Integer> offsets) {
+        int adjustedPosition = position;
+        for (Integer offset : offsets) {
+            if (offset < position) {
+                adjustedPosition--; // Shift back for each newline
+            } else {
+                break;
+            }
+        }
+        return adjustedPosition;
+    }
+
 
     private void deselectHtmlEditor() {
         if (webEngine != null) {
@@ -511,52 +528,68 @@ public class TextEditorFormController {
 
 
     private void selectRangeInHtmlEditor(int start, int end) {
-        if (webEngine != null) {
-            // JavaScript to traverse the text nodes and select the correct range
-            String script = String.format(
-                    "function selectTextInRange(start, end) {" +
-                            "    var selection = window.getSelection();" +
-                            "    var range = document.createRange();" +
-                            "    var textNode;" +
-                            "    var charCount = 0;" +
-                            "    var nodeStack = [document.body];" + // Stack to traverse the DOM
-                            "    while (nodeStack.length > 0) {" +
-                            "        var node = nodeStack.pop();" +
-                            "        if (node.nodeType === Node.TEXT_NODE) {" + // Check if the node is a text node
-                            "            var textLength = node.textContent.length;" +
-                            "            if (charCount + textLength >= start) {" +
-                            "                textNode = node;" +
-                            "                break;" + // We found the start node
-                            "            }" +
-                            "            charCount += textLength;" + // Count the total number of characters it has traversed so far
-                            "        } else if (node.nodeType === Node.ELEMENT_NODE) {" +
-                            "            for (var i = node.childNodes.length - 1; i >= 0; i--) {" +
-                            "                nodeStack.push(node.childNodes[i]);" +
-                            "            }" +
-                            "        }" +
-                            "    }" +
-                            "    if (textNode) {" +
-                            "        range.setStart(textNode, start - charCount);" + // Adjust start index
-                            "        range.setEnd(textNode, end - charCount);" +     // Adjust end index
-                            "        selection.removeAllRanges();" +                 // Clear any previous selection
-                            "        selection.addRange(range);" +                   // Add the new range
-                            "    }" +
-                            "}" +
-                            "selectTextInRange(%d, %d);", start, end);
+    if (webEngine != null) {
+        // JavaScript to traverse the text nodes and select the correct range
+        String script = String.format(
+                "function selectTextInRange(start, end) {" +
+                        "    var selection = window.getSelection();" +
+                        "    var range = document.createRange();" +
+                        "    var textNode = null;" +
+                        "    var charCount = 0;" +
+                        "    var nodeStack = [document.body];" + // Stack to traverse the DOM
+                        "    while (nodeStack.length > 0) {" +
+                        "        var node = nodeStack.pop();" +
+                        "        if (node.nodeType === Node.TEXT_NODE) {" + // Check if the node is a text node
+                        "            var textLength = node.textContent.length;" +
+                        "            if (charCount + textLength > start) {" +
+                        "                textNode = node;" +
+                        "                var adjustedStart = Math.max(0, start - charCount);" +
+                        "                var adjustedEnd = Math.min(node.textContent.length, end - charCount);" +
+                        "                if (adjustedStart < adjustedEnd) {" +
+                        "                    range.setStart(textNode, adjustedStart);" + // Adjust start index
+                        "                    range.setEnd(textNode, adjustedEnd);" + // Adjust end index
+                        "                    selection.removeAllRanges();" + // Clear any previous selection
+                        "                    selection.addRange(range);" + // Add the new range
+                        "                    break;" + // Stop once selection is made for the current node
+                        "                }" +
+                        "            }" +
+                        "            charCount += textLength;" + // Count the total number of characters it has traversed so far
+                        "        } else if (node.nodeType === Node.ELEMENT_NODE && node.tagName !== 'BR') {" +
+                        "            for (var i = node.childNodes.length - 1; i >= 0; i--) {" +
+                        "                nodeStack.push(node.childNodes[i]);" +
+                        "            }" +
+                        "        }" +
+                        "    }" +
+                        "}" +
+                        "selectTextInRange(%d, %d);", start, end);
 
-            webEngine.executeScript(script); // Execute the JavaScript to select the text
-            isSelected = true;
-        }
+        webEngine.executeScript(script); // Execute the JavaScript to select the text
+        isSelected = true;
     }
+}
 
 
-    private String getPlainTextFromHtmlEditor(WebEngine webEngine) {
+    private String getPlainTextFromHtmlEditor(WebEngine webEngine, List<Integer> newlineOffsets) {
         Object htmlContent = webEngine.executeScript("document.body.innerText");
         String plainText = "";
+        newlineOffsets.clear();  // Clear previous offsets if any
+
         if (htmlContent instanceof String) {
-            plainText = (String) htmlContent;
+            String rawText = (String) htmlContent;
+            StringBuilder normalizedText = new StringBuilder();
+            int offset = 0;
+
+            for (char c : rawText.toCharArray()) {
+                if (c == '\n') {
+                    normalizedText.append(" ");
+                    newlineOffsets.add(offset); // Track each newline position as an offset
+                } else {
+                    normalizedText.append(c);
+                }
+                offset++;
+            }
+            plainText = normalizedText.toString();
         }
-        System.out.println("Plain text: " + plainText);
         return plainText;
     }
 
@@ -574,7 +607,7 @@ public class TextEditorFormController {
         pos++;
         if (pos >= searchResultList.size()) {
             pos = -1;
-            System.out.println("POS = "+ pos);
+            System.out.println("POS = " + pos);
             return;
         }
         select();
@@ -584,7 +617,7 @@ public class TextEditorFormController {
         pos--;
         if (pos < 0) {
             pos = searchResultList.size();
-            System.out.println("POS = "+ pos);
+            System.out.println("POS = " + pos);
             return;
         }
         select();

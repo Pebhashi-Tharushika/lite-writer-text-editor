@@ -75,8 +75,6 @@ public class TextEditorFormController {
     public void initialize() {
         removeTabPane();
 
-//        chkMatchCase.setSelected(false);
-
         txtFind.textProperty().addListener((ov, previous, current) -> calculateSearchResult(false, false));
 
         WebView webView = (WebView) txtEditor.lookup("WebView"); // Get internal WebView of HTMLEditor
@@ -85,9 +83,7 @@ public class TextEditorFormController {
 
             // Set up the focus listener for the html editor
             webView.focusedProperty().addListener((obs, oldState, newState) -> {
-                System.out.println("AWA");
                 if (oldState && !newState) {
-                    System.out.println("GIYA");
                     if (btnUp.isFocused()) {
                         if (isCalculated && pos == 0) pos = 1;
                         else if (pos == 0 || pos == searchResultList.size()) pos = searchResultList.size();
@@ -113,16 +109,8 @@ public class TextEditorFormController {
 
             // Expose JavaFX methods to JavaScript (use JSObject)
             webEngine.getLoadWorker().stateProperty().addListener((obs, oldState, newState) -> {
-                System.out.println("state: html editor state changed");
+
                 if (newState == Worker.State.SUCCEEDED) {
-
-                    /*if(isClickedReplace){
-                        System.out.println("state: btn replace clicked");
-                        isClickedReplace = false;
-                        return;
-                    }*/
-
-                    System.out.println("state: new state == success");
 
                     // Make the current class instance available to JavaScript
                     JSObject window = (JSObject) webEngine.executeScript("window");
@@ -467,8 +455,6 @@ public class TextEditorFormController {
 
     // This method will be called when content changes in the HTMLEditor and textField (Find)
     public void calculateSearchResult(boolean isReplaced, boolean isChecked) {
-        System.out.println("cal: isClickedReplace" + isClickedReplace);
-        System.out.println("cal: isReplaced" + isReplaced);
 
         if (isClickedReplace && !isReplaced) {
             isClickedReplace = false;
@@ -478,23 +464,16 @@ public class TextEditorFormController {
         isCalculated = true;
         String query = txtFind.getText();
         int previousPos = pos;
-
         searchResultList.clear();
-        System.out.println("cal:------------- before: calculateSearchResult");
 
-        if (txtFind.isFocused()) {
-            System.out.println("cal: deselect for calculate search result if txtFind is focused");
-            deselectHtmlEditor();
-        }
+        if (txtFind.isFocused() || chkMatchCase.isFocused()) deselectHtmlEditor();
+
 
         if (query == null || query.isEmpty()) {
             lblResults.setText(String.format("%d Results", 0));
-            System.out.println("cal: search karanna text ekk na. isSelected- " + isSelected);
-            System.out.println("cal: txtFind.isFocused() - " + txtFind.isFocused());
             return;
         }
 
-        System.out.println("cal: search karanna text ekk tiye. isSelected- " + isSelected);
         Pattern pattern;
         try {
             pattern = chkMatchCase.isSelected() ? Pattern.compile(query) : Pattern.compile(query, Pattern.CASE_INSENSITIVE);
@@ -513,7 +492,6 @@ public class TextEditorFormController {
                 Platform.runLater(() -> {
                     if (webEngine != null) {
                         String plainText = getPlainTextFromHtmlEditor(webEngine, newlineOffsets);
-                        System.out.println("cal: plain Text: " + plainText);
                         Matcher matcher = pattern.matcher(plainText);
                         while (matcher.find()) {
                             int start = matcher.start();
@@ -630,29 +608,24 @@ public class TextEditorFormController {
 
 
     private void select() {
-        System.out.println("select: search List is empty? - " + searchResultList.isEmpty());
         if (searchResultList.isEmpty()) return;
-        System.out.println("select - pos: " + pos);
-        System.out.println("select: txt find is focused? - " + txtFind.isFocused()); //true
+
         SearchResult searchResult = searchResultList.get(pos);
         selectRangeInHtmlEditor(searchResult.getStart(), searchResult.getEnd());
 
         // Request focus back to txtFind after selecting in HTML editor after replacing all
         if (isClickedReplaceAll) {
-            System.out.println("select: replace all btn is clicked ");
             txtFind.requestFocus();
             txtFind.positionCaret(txtFind.getText().length());
             isClickedReplaceAll = false;
         }
 
-        System.out.println("select: txt find is focused after selecting ? - " + txtFind.isFocused()); //false
         lblResults.setText(String.format("%d/%d Results", (pos + 1), searchResultList.size()));
 
     }
 
     public void btnDownOnAction(ActionEvent actionEvent) {
         pos++;
-        System.out.println("POSDown ++ = " + pos);
         if (pos >= searchResultList.size()) {
             if (pos == searchResultList.size() + 1) {
                 pos = 1;
@@ -660,7 +633,6 @@ public class TextEditorFormController {
                 return;
             }
             pos = -1;
-            System.out.println("POSD = " + pos);
             return;
         }
         select();
@@ -668,7 +640,6 @@ public class TextEditorFormController {
 
     public void btnUpOnAction(ActionEvent actionEvent) {
         pos--;
-        System.out.println("POSUP = " + pos);
         if (pos < 0) {
             if (pos < -1) {
                 pos = searchResultList.size() - 2;
@@ -683,8 +654,6 @@ public class TextEditorFormController {
 
     public void chkMatchCaseOnAction(ActionEvent actionEvent) {
         calculateSearchResult(false, true);
-        System.out.println(chkMatchCase.isSelected());
-        System.out.println(chkMatchCase.isSelected() ? "care case sensitivity" : "ignore cs");
     }
 
     public void btnReplaceAllOnAction(ActionEvent actionEvent) {
@@ -699,8 +668,8 @@ public class TextEditorFormController {
 
             if (htmlContent instanceof String) {
                 String htmlText = (String) htmlContent;
-
-                Pattern pattern = Pattern.compile(Pattern.quote(txtFind.getText())); // Compile the pattern from the search term
+                String query = Pattern.quote(txtFind.getText());
+                Pattern pattern = chkMatchCase.isSelected() ? Pattern.compile(query) : Pattern.compile(query, Pattern.CASE_INSENSITIVE); // Compile the pattern from the search term
                 Matcher matcher = pattern.matcher(htmlText);
                 String updatedHtmlText = matcher.replaceAll(Matcher.quoteReplacement(txtReplace.getText())); // Replace all instances in the HTML content
 
@@ -724,7 +693,6 @@ public class TextEditorFormController {
         }
 
         if (webEngine != null) {
-            System.out.println("replace: current pos to replace: " + pos);
 
             // Escape single quotes in txtFind and txtReplace text
             String findTextEscaped = txtFind.getText().replace("'", "\\'");
@@ -775,6 +743,8 @@ public class TextEditorFormController {
     }
 
     private void removeTabPane() {
+        txtFind.clear();
+        txtReplace.clear();
         pneContainer.getChildren().remove(pneFindAndReplace); // Remove the TabPane from the layout
         AnchorPane.setTopAnchor(txtEditor, AnchorPane.getTopAnchor(pneFindAndReplace)); // Move HTMLEditor up by setting the same top anchor as TabPane had
     }

@@ -68,6 +68,8 @@ public class TextEditorFormController {
 
     private boolean isSelected = false;
     private boolean isCalculated = false;
+    private boolean isClickedReplace = false;
+    private boolean isClickedReplaceAll = false;
 
 
     public void initialize() {
@@ -81,21 +83,23 @@ public class TextEditorFormController {
 
             // Set up the focus listener for the html editor
             webView.focusedProperty().addListener((obs, oldState, newState) -> {
+                System.out.println("AWA");
                 if (oldState && !newState) {
-                    System.out.println("---------- focused");
+                    System.out.println("GIYA");
                     if (btnUp.isFocused()) {
-                        if(isCalculated && pos==0) pos=1;
-                        else if (pos==0 || pos==searchResultList.size()) pos = searchResultList.size();
+                        if (isCalculated && pos == 0) pos = 1;
+                        else if (pos == 0 || pos == searchResultList.size()) pos = searchResultList.size();
 
                     } else if (btnDown.isFocused()) {
-                        if(pos >= searchResultList.size()-1 || (isCalculated && pos==0)) pos = -1;
+                        if (pos == searchResultList.size()) pos = 0;
+                        else if (pos >= searchResultList.size() - 1 || (isCalculated && pos == 0)) pos = -1;
 
-                    } else if (txtFind.isFocused()) {
-                        if(pos== searchResultList.size()) pos = 0; //up
-                        if(pos==-1) pos = searchResultList.size() - 1; //down
+                    } else if (txtFind.isFocused() || txtReplace.isFocused()) {
+                        if (pos == searchResultList.size()) pos = 0; //up
+                        if (pos == -1) pos = searchResultList.size() - 1; //down
                         select();
                     }
-                    if(isCalculated)isCalculated = false;
+                    if (isCalculated) isCalculated = false;
                 }
             });
 
@@ -107,7 +111,17 @@ public class TextEditorFormController {
 
             // Expose JavaFX methods to JavaScript (use JSObject)
             webEngine.getLoadWorker().stateProperty().addListener((obs, oldState, newState) -> {
+                System.out.println("state: html editor state changed");
                 if (newState == Worker.State.SUCCEEDED) {
+
+                    /*if(isClickedReplace){
+                        System.out.println("state: btn replace clicked");
+                        isClickedReplace = false;
+                        return;
+                    }*/
+
+                    System.out.println("state: new state == success");
+
                     // Make the current class instance available to JavaScript
                     JSObject window = (JSObject) webEngine.executeScript("window");
                     window.setMember("java", this);
@@ -132,11 +146,8 @@ public class TextEditorFormController {
                                     "});" +
                                     "observer.observe(document.body, { childList: true, subtree: true, characterData: true });"
                     );
-                    System.out.println("---------- state");
                 }
             });
-
-
         }
 
 
@@ -289,15 +300,6 @@ public class TextEditorFormController {
                     throw new RuntimeException(e);
                 }
             }
-        });
-
-
-
-        txtEditor.focusedProperty().addListener((obs, oldState, newState) -> {
-            if (!oldState && newState) {
-                System.out.println("text editor ekata awa");
-                    select();
-                }
         });
 
     }
@@ -465,25 +467,34 @@ public class TextEditorFormController {
 
     // This method will be called when content changes in the HTMLEditor and textField (Find)
     public void calculateSearchResult(boolean isReplaced) {
+        System.out.println("cal: isClickedReplace" + isClickedReplace);
+        System.out.println("cal: isReplaced" + isReplaced);
+
+        if (isClickedReplace && !isReplaced) {
+            isClickedReplace = false;
+            return;
+        }
+
         isCalculated = true;
         String query = txtFind.getText();
+        int previousPos = pos;
+
         searchResultList.clear();
-        System.out.println("---------------- before: calculateSearchResult");
-        if(!isReplaced){
-                pos = 0;
-                System.out.println("change pos: " + pos);
-        }
-        System.out.println("calculateSearchResult - deselect: " + txtEditor.isFocused());
-        if ((txtEditor.isFocused() && isSelected) || txtFind.isFocused()) {
-            System.out.println("deselect for calculate search result");
+        System.out.println("cal:------------- before: calculateSearchResult");
+
+        if (txtFind.isFocused()) {
+            System.out.println("cal: deselect for calculate search result if txtFind is focused");
             deselectHtmlEditor();
         }
 
         if (query == null || query.isEmpty()) {
             lblResults.setText(String.format("%d Results", 0));
+            System.out.println("cal: search karanna text ekk na. isSelected- " + isSelected);
+            System.out.println("cal: txtFind.isFocused() - " + txtFind.isFocused());
             return;
         }
 
+        System.out.println("cal: search karanna text ekk tiye. isSelected- " + isSelected);
         Pattern pattern;
         try {
             pattern = Pattern.compile(query);
@@ -502,6 +513,7 @@ public class TextEditorFormController {
                 Platform.runLater(() -> {
                     if (webEngine != null) {
                         String plainText = getPlainTextFromHtmlEditor(webEngine, newlineOffsets);
+                        System.out.println("cal: plain Text: " + plainText);
                         Matcher matcher = pattern.matcher(plainText);
                         while (matcher.find()) {
                             int start = matcher.start();
@@ -514,8 +526,9 @@ public class TextEditorFormController {
 
                         lblResults.setText(String.format("%d Results", searchResultList.size()));
 
-                        System.out.println("calculateSearchResult - select: " + txtEditor.isFocused());
-                        if (!txtEditor.isFocused() && (txtFind.isFocused() || btnUp.isFocused() || btnDown.isFocused())) {
+                        if (!isReplaced || previousPos >= searchResultList.size() || previousPos < 0) pos = 0;
+
+                        if (txtFind.isFocused() || btnUp.isFocused() || btnDown.isFocused() || btnReplace.isFocused()) {
                             select(); // Highlight the first search result (if any)
                         }
                     }
@@ -590,11 +603,10 @@ public class TextEditorFormController {
         }
     }
 
-
     private String getPlainTextFromHtmlEditor(WebEngine webEngine, List<Integer> newlineOffsets) {
         Object htmlContent = webEngine.executeScript("document.body.innerText");
         String plainText = "";
-        newlineOffsets.clear();  // Clear previous offsets if any
+        newlineOffsets.clear();
 
         if (htmlContent instanceof String) {
             String rawText = (String) htmlContent;
@@ -603,8 +615,8 @@ public class TextEditorFormController {
 
             for (char c : rawText.toCharArray()) {
                 if (c == '\n') {
-                    normalizedText.append(" ");
-                    newlineOffsets.add(offset); // Track each newline position as an offset
+                    normalizedText.append(" ");  // Ensure space after each newline
+                    newlineOffsets.add(offset);   // Track newline position as an offset
                 } else {
                     normalizedText.append(c);
                 }
@@ -617,16 +629,27 @@ public class TextEditorFormController {
 
 
     private void select() {
+        System.out.println("select: search List is empty? - " + searchResultList.isEmpty());
         if (searchResultList.isEmpty()) return;
         System.out.println("select - pos: " + pos);
+        System.out.println("select: txt find is focused? - " + txtFind.isFocused()); //true
         SearchResult searchResult = searchResultList.get(pos);
         selectRangeInHtmlEditor(searchResult.getStart(), searchResult.getEnd());
+
+        // Request focus back to txtFind after selecting in HTML editor after replacing all
+        if (isClickedReplaceAll) {
+            System.out.println("select: replace all btn is clicked ");
+            txtFind.requestFocus();
+            txtFind.positionCaret(txtFind.getText().length());
+            isClickedReplaceAll = false;
+        }
+
+        System.out.println("select: txt find is focused after selecting ? - " + txtFind.isFocused()); //false
         lblResults.setText(String.format("%d/%d Results", (pos + 1), searchResultList.size()));
 
     }
 
     public void btnDownOnAction(ActionEvent actionEvent) {
-//        System.out.println("POSDown = " + pos);
         pos++;
         System.out.println("POSDown ++ = " + pos);
         if (pos >= searchResultList.size()) {
@@ -652,7 +675,6 @@ public class TextEditorFormController {
                 return;
             }
             pos = searchResultList.size();
-//            System.out.println("POSU = " + pos);
             return;
         }
         select();
@@ -663,6 +685,7 @@ public class TextEditorFormController {
 
     public void btnReplaceAllOnAction(ActionEvent actionEvent) {
 
+        isClickedReplaceAll = true;
         if (txtFind.getText().isEmpty() || searchResultList.isEmpty()) {
             return;
         }
@@ -680,165 +703,109 @@ public class TextEditorFormController {
                 txtEditor.setHtmlText(updatedHtmlText); // Set the updated HTML content back to the editor
                 lblResults.setText("Result " + 0);
                 searchResultList.clear();
+                deselectHtmlEditor();
+
             }
 
         }
+
     }
+
+/*public void btnReplaceOnAction(ActionEvent actionEvent) {
+    isClickedReplace = true;
+
+    if (txtFind.getText().isEmpty() || searchResultList.isEmpty() || !isSelected) {
+        return;
+    }
+
+    if (webEngine != null) {
+        System.out.println("replace: current pos to replace: " + pos);
+
+        // Escape single quotes in txtFind and txtReplace text
+        String findTextEscaped = txtFind.getText().replace("'", "\\'");
+        String replaceTextEscaped = txtReplace.getText().replace("'", "\\'");
+
+        // JavaScript replacement script with improved spacing logic
+        String replacementScript = String.format(
+            "var selection = window.getSelection();" +
+            "if (selection.rangeCount > 0) {" +
+            "    var range = selection.getRangeAt(0);" +
+            "    var selectedText = range.toString();" +
+            "    if (selectedText.trim() === '%s') {" +
+            "        var start = range.startOffset;" +
+            "        var end = range.endOffset;" +
+            "        var textBefore = range.startContainer.textContent.substring(0, start);" +
+            "        var textAfter = range.endContainer.textContent.substring(end);" +
+            "        var spaceBefore = (textBefore.endsWith(' ')) ? ' ' : '';" + // Check for space before
+            "        var spaceAfter = (textAfter.startsWith(' ')) ? ' ' : '';" + // Check for space after
+            "        if (textAfter.trim() === '') {" + // If textAfter is empty, add a space
+            "            spaceAfter = ' ';" +
+            "        }" +
+            "        var replacementText = spaceBefore + '%s' + spaceAfter;" +
+            "        selection.deleteFromDocument();" +
+            "        document.execCommand('insertText', false, replacementText.trim());" + // Trim to avoid double spaces
+            "    }" +
+            "}",
+            findTextEscaped, replaceTextEscaped
+        );
+
+        // Execute the corrected JavaScript
+        webEngine.executeScript(replacementScript);
+        calculateSearchResult(true);
+    }
+}*/
 
     public void btnReplaceOnAction(ActionEvent actionEvent) {
+    isClickedReplace = true;
 
-        if (txtFind.getText().isEmpty() || searchResultList.isEmpty() || !isSelected) {
-            return;
-        }
-
-        if (webEngine != null) {
-            SearchResult result = searchResultList.get(pos); // Get the current selection range
-            int start = result.getStart();
-            int end = result.getEnd();
-
-            /*// Use the existing method to select the text range in the HTML editor
-            selectRangeInHtmlEditor(start, end);*/
-
-            // Replace the selected text in the editor
-            /*String replacementScript = String.format(
-                "var selection = window.getSelection();" +
-                "if (selection.rangeCount > 0) {" +
-                "    selection.deleteFromDocument();" + // Clear current selection
-                "    document.execCommand('insertText', false, '%s');" + // Insert replacement text
-                "}", txtReplace.getText()
-            );*/
-
-            String replacementScript = String.format(
-                    "var selection = window.getSelection();" +
-                            "if (selection.rangeCount > 0) {" +
-                            "    var range = selection.getRangeAt(0);" +
-                            "    var selectedText = range.toString();" +
-                            "    if (selectedText === '%s') {" +  // Check if selected text matches txtFind's text
-                            "        selection.deleteFromDocument();" +  // Clear the current selection
-                            "        document.execCommand('insertText', false, '%s');" +  // Insert replacement text
-                            "    }" +
-                            "}", txtFind.getText().replace("'", "\\'"), txtReplace.getText().replace("'", "\\'")
-            );
-
-            webEngine.executeScript(replacementScript); // Execute JavaScript for replacement
-
-            // Remove the replaced result from the search results list
-            calculateSearchResult(true);
-
-            // Update pos and results label to reflect the updated search results
-
-
-//            lblResults.setText("Result " + (searchResultList.size()));
-        }
-
+    if (txtFind.getText().isEmpty() || searchResultList.isEmpty() || !isSelected) {
+        return;
     }
 
+    if (webEngine != null) {
+        System.out.println("replace: current pos to replace: " + pos);
 
-    /*public void btnReplaceOnAction(ActionEvent actionEvent) {
-        if (!(txtFind.getText().isEmpty() || txtReplace.getText().isEmpty() || searchResultList.isEmpty())) {
+        // Escape single quotes in txtFind and txtReplace text
+        String findTextEscaped = txtFind.getText().replace("'", "\\'");
+        String replaceTextEscaped = txtReplace.getText().replace("'", "\\'");
 
-            if (webEngine != null) {
-                Object htmlContent = webEngine.executeScript("document.body.innerHTML"); // Get the HTML content from the editor
+        // JavaScript replacement script with improved spacing logic
+        String replacementScript = String.format(
+            "var selection = window.getSelection();" +
+            "if (selection.rangeCount > 0) {" +
+            "    var range = selection.getRangeAt(0);" +
+            "    var selectedText = range.toString();" +
+            "    if (selectedText.trim() === '%s') {" +
+            "        var start = range.startOffset;" +
+            "        var end = range.endOffset;" +
+            "        var textBefore = range.startContainer.textContent.substring(0, start);" +
+            "        var textAfter = range.endContainer.textContent.substring(end);" +
 
-                if (htmlContent instanceof String) {
-                    String htmlText = (String) htmlContent;
-                    System.out.println(htmlText);
+            // Handle isolated cases based on surrounding characters
+            "        var replacementText;" +
+            "        if (textBefore.endsWith(' ') && textAfter.startsWith(' ')) {" + // Case 3: Isolated with spaces on both sides
+            "            replacementText = '%s ';" +
+            "        } else if (textBefore.endsWith(' ') && textAfter.trim() === '') {" + // Case 1: End of line with space before
+            "            replacementText = ' %s';" +
+            "        } else if (textBefore.trim() === '' && textAfter.startsWith(' ')) {" + // Case 2: Beginning of line with space after
+            "            replacementText = '%s ';" +
+            "        } else {" + // General replacement for inline cases
+            "            replacementText = '%s';" +
+            "        }" +
 
-                    SearchResult result = searchResultList.get(pos); // Get the currently selected search result range
-                    int start = result.getStart();
-                    int end = result.getEnd();
-                    System.out.println("start: " + start + ", end: " + end);
+            "        selection.deleteFromDocument();" +
+            "        document.execCommand('insertText', false, replacementText);" +
+            "    }" +
+            "}",
+            findTextEscaped, replaceTextEscaped, replaceTextEscaped, replaceTextEscaped, replaceTextEscaped
+        );
 
-                    List<Integer> newlineOffsets = new ArrayList<>();
-                    String plainText = getPlainTextFromHtmlEditor(webEngine, newlineOffsets);
-
-                    // Split the plain text into three parts: before, to replace, and after
-                    String plainBefore = plainText.substring(0, start);
-                    String toReplacePlain = plainText.substring(start, end);
-                    String plainAfter = plainText.substring(end);
-                    System.out.println("before: " + plainBefore); //before: abcjk def
-                    System.out.println("toReplace: " + toReplacePlain); //toReplace: jk
-                    System.out.println("after: " + plainAfter); //after: ghi  jk lmjknojk pqrjk  stjku vjkw
-
-                    // Find HTML start and calculate HTML end based on the length of the plain text replacement segment
-    int htmlStart = convertPlainOffsetToHtmlOffset(plainBefore, htmlText);
-    int htmlEnd = calculateHtmlEndOffset(htmlStart, toReplacePlain.length(), htmlText);
-                    System.out.println("htmlStart: "+htmlStart);
-                    System.out.println("htmlEnd: "+htmlEnd);
-
-                    String htmlBefore = htmlText.substring(0, htmlStart);
-                    String htmlAfter = htmlText.substring(htmlEnd);
-                    System.out.println("before: " + htmlBefore);
-                    System.out.println("after: " + htmlAfter);
-
-                    String updatedHtmlText = htmlBefore + txtReplace.getText() + htmlAfter; // Reassemble the HTML content with the replaced selection
-
-
-                    System.out.println("updatedHtmlText: " + updatedHtmlText);
-
-                    txtEditor.setHtmlText(updatedHtmlText); // Update the HTML content back to the editor
-
-                    searchResultList.remove(result); // Remove the replaced result from the list
-                    lblResults.setText("Result " + searchResultList.size());
-
-                    // Update the current position to the next match, if available
-                    *//*if (!searchResultList.isEmpty()) {
-                        pos--;
-                    } else {
-                        pos = -1;
-                    }*//*
-
-                }
-            }
-
-        }
-    }*/
-
-    private int calculateHtmlEndOffset(int htmlStart, int plainLength, String htmlText) {
-        int htmlOffset = htmlStart;
-        int plainOffset = 0;
-
-        for (int i = htmlStart; i < htmlText.length() && plainOffset < plainLength; i++) {
-            char c = htmlText.charAt(i);
-            if (c != '<') {
-                plainOffset++;
-            } else {
-                while (i < htmlText.length() && htmlText.charAt(i) != '>') {
-                    i++;
-                }
-            }
-            htmlOffset++;
-        }
-        return htmlOffset;
+        // Execute the corrected JavaScript
+        webEngine.executeScript(replacementScript);
+        calculateSearchResult(true);
     }
+}
 
-    // Helper method to adjust plain text offset to HTML offset
-    private int convertPlainOffsetToHtmlOffset(String plainTextSegment, String htmlText) {
-        int plainTextLength = plainTextSegment.length();
-        int htmlOffset = 0;
-        int plainOffset = 0;
-
-        int i;
-        for (i = 0; i < htmlText.length() && plainOffset < plainTextLength; i++) {
-            char c = htmlText.charAt(i);
-            System.out.println("c: " + c);
-            if (c != '<') {
-                if (plainTextSegment.charAt(plainOffset) == c) {
-                    plainOffset++;
-                }
-            } else {
-                while (i < htmlText.length() && htmlText.charAt(i) != '>') {
-                    i++;
-                }
-            }
-            htmlOffset++;
-            System.out.println("i: " + i);
-            System.out.println("htmlOffset: " + htmlOffset);
-            System.out.println("plainOffset: " + plainOffset);
-        }
-        System.out.println("final htmlOffset: " + htmlOffset);
-        return i;
-    }
 
 
     public void pneTabOnClosed(Event event) {

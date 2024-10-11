@@ -75,7 +75,9 @@ public class TextEditorFormController {
     public void initialize() {
         removeTabPane();
 
-        txtFind.textProperty().addListener((ov, previous, current) -> calculateSearchResult(false));
+//        chkMatchCase.setSelected(false);
+
+        txtFind.textProperty().addListener((ov, previous, current) -> calculateSearchResult(false, false));
 
         WebView webView = (WebView) txtEditor.lookup("WebView"); // Get internal WebView of HTMLEditor
 
@@ -140,7 +142,7 @@ public class TextEditorFormController {
                                     "        clearTimeout(timeoutId);" +  // Clear the previous timeout if still active
                                     "        timeoutId = setTimeout(function() { " +  // Set a new timeout (debounce)
                                     "            console.log('Debounced and filtered content change');" +
-                                    "                java.calculateSearchResult(false);" +
+                                    "                java.calculateSearchResult(false,false);" +
                                     "        }, 200);" +  // Debounce interval (200ms)
                                     "    }" +
                                     "});" +
@@ -149,7 +151,6 @@ public class TextEditorFormController {
                 }
             });
         }
-
 
         mnuNew.setOnAction(actionEvent -> {
             txtEditor.setHtmlText("");
@@ -301,7 +302,6 @@ public class TextEditorFormController {
                 }
             }
         });
-
     }
 
 
@@ -466,7 +466,7 @@ public class TextEditorFormController {
 
 
     // This method will be called when content changes in the HTMLEditor and textField (Find)
-    public void calculateSearchResult(boolean isReplaced) {
+    public void calculateSearchResult(boolean isReplaced, boolean isChecked) {
         System.out.println("cal: isClickedReplace" + isClickedReplace);
         System.out.println("cal: isReplaced" + isReplaced);
 
@@ -497,7 +497,7 @@ public class TextEditorFormController {
         System.out.println("cal: search karanna text ekk tiye. isSelected- " + isSelected);
         Pattern pattern;
         try {
-            pattern = Pattern.compile(query);
+            pattern = chkMatchCase.isSelected() ? Pattern.compile(query) : Pattern.compile(query, Pattern.CASE_INSENSITIVE);
         } catch (RuntimeException e) {
             return;
         }
@@ -526,9 +526,10 @@ public class TextEditorFormController {
 
                         lblResults.setText(String.format("%d Results", searchResultList.size()));
 
-                        if (!isReplaced || previousPos >= searchResultList.size() || previousPos < 0) pos = 0;
+                        if (!isReplaced || isChecked || previousPos >= searchResultList.size() || previousPos < 0)
+                            pos = 0;
 
-                        if (txtFind.isFocused() || btnUp.isFocused() || btnDown.isFocused() || btnReplace.isFocused()) {
+                        if (txtFind.isFocused() || btnUp.isFocused() || btnDown.isFocused() || btnReplace.isFocused() || chkMatchCase.isFocused()) {
                             select(); // Highlight the first search result (if any)
                         }
                     }
@@ -681,6 +682,9 @@ public class TextEditorFormController {
     }
 
     public void chkMatchCaseOnAction(ActionEvent actionEvent) {
+        calculateSearchResult(false, true);
+        System.out.println(chkMatchCase.isSelected());
+        System.out.println(chkMatchCase.isSelected() ? "care case sensitivity" : "ignore cs");
     }
 
     public void btnReplaceAllOnAction(ActionEvent actionEvent) {
@@ -711,102 +715,60 @@ public class TextEditorFormController {
 
     }
 
-/*public void btnReplaceOnAction(ActionEvent actionEvent) {
-    isClickedReplace = true;
-
-    if (txtFind.getText().isEmpty() || searchResultList.isEmpty() || !isSelected) {
-        return;
-    }
-
-    if (webEngine != null) {
-        System.out.println("replace: current pos to replace: " + pos);
-
-        // Escape single quotes in txtFind and txtReplace text
-        String findTextEscaped = txtFind.getText().replace("'", "\\'");
-        String replaceTextEscaped = txtReplace.getText().replace("'", "\\'");
-
-        // JavaScript replacement script with improved spacing logic
-        String replacementScript = String.format(
-            "var selection = window.getSelection();" +
-            "if (selection.rangeCount > 0) {" +
-            "    var range = selection.getRangeAt(0);" +
-            "    var selectedText = range.toString();" +
-            "    if (selectedText.trim() === '%s') {" +
-            "        var start = range.startOffset;" +
-            "        var end = range.endOffset;" +
-            "        var textBefore = range.startContainer.textContent.substring(0, start);" +
-            "        var textAfter = range.endContainer.textContent.substring(end);" +
-            "        var spaceBefore = (textBefore.endsWith(' ')) ? ' ' : '';" + // Check for space before
-            "        var spaceAfter = (textAfter.startsWith(' ')) ? ' ' : '';" + // Check for space after
-            "        if (textAfter.trim() === '') {" + // If textAfter is empty, add a space
-            "            spaceAfter = ' ';" +
-            "        }" +
-            "        var replacementText = spaceBefore + '%s' + spaceAfter;" +
-            "        selection.deleteFromDocument();" +
-            "        document.execCommand('insertText', false, replacementText.trim());" + // Trim to avoid double spaces
-            "    }" +
-            "}",
-            findTextEscaped, replaceTextEscaped
-        );
-
-        // Execute the corrected JavaScript
-        webEngine.executeScript(replacementScript);
-        calculateSearchResult(true);
-    }
-}*/
 
     public void btnReplaceOnAction(ActionEvent actionEvent) {
-    isClickedReplace = true;
+        isClickedReplace = true;
 
-    if (txtFind.getText().isEmpty() || searchResultList.isEmpty() || !isSelected) {
-        return;
+        if (txtFind.getText().isEmpty() || searchResultList.isEmpty() || !isSelected) {
+            return;
+        }
+
+        if (webEngine != null) {
+            System.out.println("replace: current pos to replace: " + pos);
+
+            // Escape single quotes in txtFind and txtReplace text
+            String findTextEscaped = txtFind.getText().replace("'", "\\'");
+            String replaceTextEscaped = txtReplace.getText().replace("'", "\\'");
+
+            String replacementScript = String.format(
+                    "var selection = window.getSelection();" +
+                            "var matchCase = %b;" +  // Pass `true` for case-sensitive, `false` for case-insensitive
+                            "if (selection.rangeCount > 0) {" +
+                            "    var range = selection.getRangeAt(0);" +
+                            "    var selectedText = range.toString();" +
+                            "    var compareText = matchCase ? selectedText : selectedText.toLowerCase();" + // Adjust comparison based on matchCase
+                            "    var targetText = matchCase ? '%s' : '%s'.toLowerCase();" + // Adjust target text based on matchCase
+                            "    if (compareText.trim() === targetText) {" +
+                            "        var start = range.startOffset;" +
+                            "        var end = range.endOffset;" +
+                            "        var textBefore = range.startContainer.textContent.substring(0, start);" +
+                            "        var textAfter = range.endContainer.textContent.substring(end);" +
+
+                            // Handle isolated cases based on surrounding characters
+                            "        var replacementText;" +
+                            "        if (textBefore.endsWith(' ') && textAfter.startsWith(' ')) {" + // Case 1: Isolated with spaces on both sides
+                            "            replacementText = '%s ';" +
+                            "        } else if (textBefore.endsWith(' ') && textAfter.trim() === '') {" + // Case 2: End of line with space before
+                            "            replacementText = ' %s';" +
+                            "        } else if (textBefore.trim() === '' && textAfter.startsWith(' ')) {" + // Case 3: Beginning of line with space after
+                            "            replacementText = '%s ';" +
+                            "        } else {" + // Case 4: General replacement for inline cases
+                            "            replacementText = '%s';" +
+                            "        }" +
+
+                            "        selection.deleteFromDocument();" +
+                            "        document.execCommand('insertText', false, replacementText);" +
+                            "    }" +
+                            "}",
+                    chkMatchCase.isSelected(), // Set matchCase to true/false based on selection
+                    findTextEscaped, findTextEscaped, // Target text for both cases
+                    replaceTextEscaped, replaceTextEscaped, replaceTextEscaped, replaceTextEscaped
+            );
+
+            webEngine.executeScript(replacementScript); // Execute the JavaScript replacement script
+            calculateSearchResult(true, false);
+        }
     }
-
-    if (webEngine != null) {
-        System.out.println("replace: current pos to replace: " + pos);
-
-        // Escape single quotes in txtFind and txtReplace text
-        String findTextEscaped = txtFind.getText().replace("'", "\\'");
-        String replaceTextEscaped = txtReplace.getText().replace("'", "\\'");
-
-        // JavaScript replacement script with improved spacing logic
-        String replacementScript = String.format(
-            "var selection = window.getSelection();" +
-            "if (selection.rangeCount > 0) {" +
-            "    var range = selection.getRangeAt(0);" +
-            "    var selectedText = range.toString();" +
-            "    if (selectedText.trim() === '%s') {" +
-            "        var start = range.startOffset;" +
-            "        var end = range.endOffset;" +
-            "        var textBefore = range.startContainer.textContent.substring(0, start);" +
-            "        var textAfter = range.endContainer.textContent.substring(end);" +
-
-            // Handle isolated cases based on surrounding characters
-            "        var replacementText;" +
-            "        if (textBefore.endsWith(' ') && textAfter.startsWith(' ')) {" + // Case 3: Isolated with spaces on both sides
-            "            replacementText = '%s ';" +
-            "        } else if (textBefore.endsWith(' ') && textAfter.trim() === '') {" + // Case 1: End of line with space before
-            "            replacementText = ' %s';" +
-            "        } else if (textBefore.trim() === '' && textAfter.startsWith(' ')) {" + // Case 2: Beginning of line with space after
-            "            replacementText = '%s ';" +
-            "        } else {" + // General replacement for inline cases
-            "            replacementText = '%s';" +
-            "        }" +
-
-            "        selection.deleteFromDocument();" +
-            "        document.execCommand('insertText', false, replacementText);" +
-            "    }" +
-            "}",
-            findTextEscaped, replaceTextEscaped, replaceTextEscaped, replaceTextEscaped, replaceTextEscaped
-        );
-
-        // Execute the corrected JavaScript
-        webEngine.executeScript(replacementScript);
-        calculateSearchResult(true);
-    }
-}
-
-
 
     public void pneTabOnClosed(Event event) {
         removeTabPane();

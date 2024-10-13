@@ -1,6 +1,9 @@
 package controller;
 
 
+import javafx.collections.ObservableList;
+import javafx.scene.Node;
+import javafx.scene.text.Font;
 import netscape.javascript.JSObject;
 
 import javafx.application.Platform;
@@ -29,6 +32,8 @@ import java.net.URL;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
+import java.util.Stack;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -60,6 +65,8 @@ public class TextEditorFormController {
     public TabPane pneFindAndReplace;
     public AnchorPane pneContainer;
     public Tab pneTab;
+    public MenuItem mnuUndo;
+    public MenuItem mnuRedo;
     private Path currentFilePath;
     private WebEngine webEngine;
 
@@ -70,6 +77,9 @@ public class TextEditorFormController {
     private boolean isCalculated = false;
     private boolean isClickedReplace = false;
     private boolean isClickedReplaceAll = false;
+
+    private final Stack<String> undoStack = new Stack<>();
+    private final Stack<String> redoStack = new Stack<>();
 
 
     public void initialize() {
@@ -116,6 +126,7 @@ public class TextEditorFormController {
                     JSObject window = (JSObject) webEngine.executeScript("window");
                     window.setMember("java", this);
 
+
                     // Set up the MutationObserver to detect changes in the HTML editor
                     webEngine.executeScript(
                             "var timeoutId;" +  // Declare a variable to handle the debounce timeout
@@ -129,21 +140,47 @@ public class TextEditorFormController {
                                     "    if (relevantChange) { " +
                                     "        clearTimeout(timeoutId);" +  // Clear the previous timeout if still active
                                     "        timeoutId = setTimeout(function() { " +  // Set a new timeout (debounce)
-                                    "            console.log('Debounced and filtered content change');" +
-                                    "                java.calculateSearchResult(false,false);" +
+                                    "        console.log('Debounced and filtered content change');" +
+                                    "        java.calculateSearchResult(false,false);" +
+                                    "        java.saveState();" + // Direct call to save state after change
                                     "        }, 200);" +  // Debounce interval (200ms)
                                     "    }" +
                                     "});" +
                                     "observer.observe(document.body, { childList: true, subtree: true, characterData: true });"
                     );
+
+                    saveState(); // Initial state save after loading
                 }
             });
         }
 
         mnuNew.setOnAction(actionEvent -> {
-            txtEditor.setHtmlText("");
+
+            Node node = txtEditor.lookup(".bottom-toolbar");
+            if (node instanceof ToolBar) {
+                ToolBar bar = (ToolBar) node;
+                ObservableList<Node> items = bar.getItems();
+                for (int i = 0; i < items.size(); i++) {
+                    if(i==1){ // Check if the item is a font-family ComboBox
+                        Node item = items.get(i);
+                    if (item instanceof ComboBox) {
+                        ComboBox<?> comboBox = (ComboBox<?>) item;
+                        System.out.println("Found font menu ComboBox: " + comboBox);
+
+                        comboBox.getSelectionModel().select(0); // select the default font family
+                        break;
+                    }
+                    }
+                }
+            }
+            txtEditor.setHtmlText(""); // Clear the editor's content
+
+            // Reset path and undo/redo stacks
             currentFilePath = null;
+            undoStack.clear();
+            redoStack.clear();
         });
+
 
         mnuSave.setOnAction(new EventHandler<ActionEvent>() {
             @Override
@@ -290,6 +327,18 @@ public class TextEditorFormController {
                 }
             }
         });
+
+        mnuUndo.setOnAction(actionEvent -> undo());
+
+        mnuRedo.setOnAction(actionEvent -> redo());
+
+       /* if (txtEditor.getScene() != null) {
+    Scene scene = txtEditor.getScene();
+    scene.getAccelerators().put(new KeyCodeCombination(KeyCode.Z, KeyCombination.CONTROL_DOWN), this::undo);
+    scene.getAccelerators().put(new KeyCodeCombination(KeyCode.Y, KeyCombination.CONTROL_DOWN), this::redo);
+}*/
+
+
     }
 
 
@@ -420,6 +469,7 @@ public class TextEditorFormController {
         }
     }
 
+
     /* drag and drop text file on editor*/
 
     public void rootOnDragOver(DragEvent dragEvent) {
@@ -450,8 +500,9 @@ public class TextEditorFormController {
         dragEvent.consume();
     }
 
-    /* find and replace */
 
+
+    /* find and replace */
 
     // This method will be called when content changes in the HTMLEditor and textField (Find)
     public void calculateSearchResult(boolean isReplaced, boolean isChecked) {
@@ -532,14 +583,12 @@ public class TextEditorFormController {
         return adjustedPosition;
     }
 
-
     private void deselectHtmlEditor() {
         if (webEngine != null) {
             webEngine.executeScript("window.getSelection().removeAllRanges();"); // Deselect text using JavaScript
             isSelected = false;
         }
     }
-
 
     private void selectRangeInHtmlEditor(int start, int end) {
         if (webEngine != null) {
@@ -605,7 +654,6 @@ public class TextEditorFormController {
         }
         return plainText;
     }
-
 
     private void select() {
         if (searchResultList.isEmpty()) return;
@@ -684,7 +732,6 @@ public class TextEditorFormController {
 
     }
 
-
     public void btnReplaceOnAction(ActionEvent actionEvent) {
         isClickedReplace = true;
 
@@ -748,4 +795,71 @@ public class TextEditorFormController {
         pneContainer.getChildren().remove(pneFindAndReplace); // Remove the TabPane from the layout
         AnchorPane.setTopAnchor(txtEditor, AnchorPane.getTopAnchor(pneFindAndReplace)); // Move HTMLEditor up by setting the same top anchor as TabPane had
     }
+
+
+    /* undo and redo */
+
+
+    public void saveState() {
+        System.out.println("save state");
+        String currentContent = (String) webEngine.executeScript("document.body.innerHTML");
+
+        // Push the current content to undo stack only if different
+        if (undoStack.isEmpty() || !undoStack.peek().equals(currentContent)) {
+            undoStack.push(currentContent);
+            redoStack.clear();  // Clear redo stack after new action
+            System.out.println("Saved state: " + currentContent); // Debugging output
+        }
+    }
+
+    private void undo() {
+        System.out.println("---------- UNDO ------------");
+        printUndoStack();
+        printRedoStack();
+        if (!undoStack.isEmpty()) {
+            String currentContent = undoStack.pop();
+
+            if (!undoStack.isEmpty()) { // Ensure there's still a previous state to undo to
+                String previousContent = undoStack.peek();
+                webEngine.executeScript("document.body.innerHTML = `" + previousContent.replace("`", "\\`") + "`");
+                redoStack.push(currentContent);  // Push the popped content to redo stack
+                System.out.println("Undo: " + previousContent); // Debugging output
+            } else {
+                // Edge case: If undoStack is empty, restore the last popped content
+                undoStack.push(currentContent);
+            }
+        }
+        printUndoStack();
+        printRedoStack();
+    }
+
+    private void redo() {
+        System.out.println("----------- REDO --------------");
+        printUndoStack();
+        printRedoStack();
+        if (!redoStack.isEmpty()) {
+            String redoContent = redoStack.pop();
+            webEngine.executeScript("document.body.innerHTML = `" + redoContent.replace("`", "\\`") + "`");
+            undoStack.push(redoContent);  // Push the redone content back to undo stack
+            System.out.println("Redo: " + redoContent); // Debugging output
+        }
+        printUndoStack();
+        printRedoStack();
+    }
+
+    private void printUndoStack() {
+        System.out.println("undo stack: ");
+        for (String s : undoStack) {
+            System.out.println(s);
+        }
+    }
+
+    private void printRedoStack() {
+        System.out.println("redo stack: ");
+        for (String s : redoStack) {
+            System.out.println(s);
+        }
+    }
+
+
 }

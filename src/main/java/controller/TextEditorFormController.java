@@ -32,7 +32,6 @@ import java.net.URL;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 import java.util.Stack;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -83,6 +82,20 @@ public class TextEditorFormController {
 
 
     public void initialize() {
+
+         // Set up accelerators after the editor is loaded
+        Scene scene = txtEditor.getScene();
+        if (scene != null) {
+            setupAccelerators(scene);
+        } else {
+            // Use a listener to wait for the scene to be set
+            txtEditor.sceneProperty().addListener((obs, oldScene, newScene) -> {
+                if (newScene != null) {
+                    setupAccelerators(newScene);
+                }
+            });
+        }
+
         removeTabPane();
 
         txtFind.textProperty().addListener((ov, previous, current) -> calculateSearchResult(false, false));
@@ -161,15 +174,13 @@ public class TextEditorFormController {
                 ToolBar bar = (ToolBar) node;
                 ObservableList<Node> items = bar.getItems();
                 for (int i = 0; i < items.size(); i++) {
-                    if(i==1){ // Check if the item is a font-family ComboBox
+                    if (i == 1) { // Check if the item is a font-family ComboBox
                         Node item = items.get(i);
-                    if (item instanceof ComboBox) {
-                        ComboBox<?> comboBox = (ComboBox<?>) item;
-                        System.out.println("Found font menu ComboBox: " + comboBox);
-
-                        comboBox.getSelectionModel().select(0); // select the default font family
-                        break;
-                    }
+                        if (item instanceof ComboBox) {
+                            ComboBox<?> comboBox = (ComboBox<?>) item;
+                            comboBox.getSelectionModel().select(0); // select the default font family
+                            break;
+                        }
                     }
                 }
             }
@@ -180,7 +191,6 @@ public class TextEditorFormController {
             undoStack.clear();
             redoStack.clear();
         });
-
 
         mnuSave.setOnAction(new EventHandler<ActionEvent>() {
             @Override
@@ -331,14 +341,6 @@ public class TextEditorFormController {
         mnuUndo.setOnAction(actionEvent -> undo());
 
         mnuRedo.setOnAction(actionEvent -> redo());
-
-       /* if (txtEditor.getScene() != null) {
-    Scene scene = txtEditor.getScene();
-    scene.getAccelerators().put(new KeyCodeCombination(KeyCode.Z, KeyCombination.CONTROL_DOWN), this::undo);
-    scene.getAccelerators().put(new KeyCodeCombination(KeyCode.Y, KeyCombination.CONTROL_DOWN), this::redo);
-}*/
-
-
     }
 
 
@@ -799,23 +801,32 @@ public class TextEditorFormController {
 
     /* undo and redo */
 
+    private void setupAccelerators(Scene scene) {
+    // Override Ctrl+Z for custom undo
+    scene.addEventFilter(KeyEvent.KEY_PRESSED, event -> {
+        if (new KeyCodeCombination(KeyCode.Z, KeyCombination.CONTROL_DOWN).match(event)) {
+            event.consume();  // Prevents the default undo behavior of HTMLEditor
+            undo();
+        }
+    });
+
+    // Ctrl+Y for redo
+    scene.getAccelerators().put(new KeyCodeCombination(KeyCode.Y, KeyCombination.CONTROL_DOWN), this::redo);
+}
+
+
 
     public void saveState() {
-        System.out.println("save state");
         String currentContent = (String) webEngine.executeScript("document.body.innerHTML");
 
         // Push the current content to undo stack only if different
-        if (undoStack.isEmpty() || !undoStack.peek().equals(currentContent)) {
+        if ((undoStack.isEmpty() && redoStack.isEmpty()) || !undoStack.peek().equals(currentContent)) {
             undoStack.push(currentContent);
             redoStack.clear();  // Clear redo stack after new action
-            System.out.println("Saved state: " + currentContent); // Debugging output
         }
     }
 
     private void undo() {
-        System.out.println("---------- UNDO ------------");
-        printUndoStack();
-        printRedoStack();
         if (!undoStack.isEmpty()) {
             String currentContent = undoStack.pop();
 
@@ -823,43 +834,19 @@ public class TextEditorFormController {
                 String previousContent = undoStack.peek();
                 webEngine.executeScript("document.body.innerHTML = `" + previousContent.replace("`", "\\`") + "`");
                 redoStack.push(currentContent);  // Push the popped content to redo stack
-                System.out.println("Undo: " + previousContent); // Debugging output
             } else {
                 // Edge case: If undoStack is empty, restore the last popped content
                 undoStack.push(currentContent);
             }
         }
-        printUndoStack();
-        printRedoStack();
     }
 
     private void redo() {
-        System.out.println("----------- REDO --------------");
-        printUndoStack();
-        printRedoStack();
         if (!redoStack.isEmpty()) {
             String redoContent = redoStack.pop();
             webEngine.executeScript("document.body.innerHTML = `" + redoContent.replace("`", "\\`") + "`");
             undoStack.push(redoContent);  // Push the redone content back to undo stack
-            System.out.println("Redo: " + redoContent); // Debugging output
-        }
-        printUndoStack();
-        printRedoStack();
-    }
-
-    private void printUndoStack() {
-        System.out.println("undo stack: ");
-        for (String s : undoStack) {
-            System.out.println(s);
         }
     }
-
-    private void printRedoStack() {
-        System.out.println("redo stack: ");
-        for (String s : redoStack) {
-            System.out.println(s);
-        }
-    }
-
 
 }

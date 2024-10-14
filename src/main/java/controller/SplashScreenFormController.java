@@ -53,7 +53,7 @@ public class SplashScreenFormController {
                     primaryStage.setTitle("LiteWriter Text Editor");
                     primaryStage.show();
                     primaryStage.centerOnScreen();
-//                    primaryStage.setResizable(false);
+                    primaryStage.setResizable(false);
                     lblStatus.getScene().getWindow().hide();
                 } catch (IOException e) {
                     throw new RuntimeException(e);

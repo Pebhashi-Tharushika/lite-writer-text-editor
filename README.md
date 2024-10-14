@@ -15,9 +15,12 @@ The text editor includes the following menus and menu items with shortcuts:
   - `Close Window` (Ctrl + W): Close the editor.
 
 - **Edit**
+  - `Undo` (Ctrl + Z): Revert the last action.
+  - `Redo` (Ctrl + Y): Re-apply the last undone action.
   - `Cut` (Ctrl + X): Cut the selected text.
   - `Copy` (Ctrl + C): Copy the selected text.
   - `Paste` (Ctrl + V): Paste the copied/cut text.
+  - `Find And Replace` (Ctrl + H): Search for specified text and replace it with another value (one by one / at once).
   - `Select All` (Ctrl + A): Select all text in the document.
 
 - **Help**
@@ -57,14 +60,13 @@ The toolbar allows users to apply various formatting options to the text, includ
 ![](asset/splashscreen.gif)
 <br><br>
 - menu bar
-![](asset/menubar.gif)
+![](asset/menu-bar.gif)
 <br><br>
 - "About" menu item
 ![](asset/about-window.gif)
 <br><br>
 - Text formatting & scrollable text area
-![](asset/text-formatting.png)<br><br>
-![](asset/scrollable-text-area.png)
+![](asset/text-formatting-and-scrollable-text-area.gif)
 
   
 ## Version

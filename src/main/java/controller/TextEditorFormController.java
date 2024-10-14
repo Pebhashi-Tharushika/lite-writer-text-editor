@@ -3,7 +3,7 @@ package controller;
 
 import javafx.collections.ObservableList;
 import javafx.scene.Node;
-import javafx.scene.text.Font;
+
 import netscape.javascript.JSObject;
 
 import javafx.application.Platform;
@@ -83,7 +83,7 @@ public class TextEditorFormController {
 
     public void initialize() {
 
-         // Set up accelerators after the editor is loaded
+        // Set up accelerators after the editor is loaded
         Scene scene = txtEditor.getScene();
         if (scene != null) {
             setupAccelerators(scene);
@@ -629,8 +629,21 @@ public class TextEditorFormController {
                             "selectTextInRange(%d, %d);", start, end);
 
             webEngine.executeScript(script); // Execute the JavaScript to select the text
+            scrollToSelectedText(); // Scroll the content to bring the selected text into view
             isSelected = true;
         }
+    }
+
+    private void scrollToSelectedText() {
+        // Executes JavaScript in the HTML editor's WebEngine to scroll to the selected text
+        webEngine.executeScript(
+                "var selected = window.getSelection();" +
+                        "if (selected.rangeCount > 0) {" +
+                        "    var range = selected.getRangeAt(0);" +
+                        "    var rect = range.getBoundingClientRect();" +
+                        "    window.scrollTo(0, rect.top + window.pageYOffset - 100);" + // Adjust offset as needed
+                        "}"
+        );
     }
 
     private String getPlainTextFromHtmlEditor(WebEngine webEngine, List<Integer> newlineOffsets) {
@@ -802,18 +815,17 @@ public class TextEditorFormController {
     /* undo and redo */
 
     private void setupAccelerators(Scene scene) {
-    // Override Ctrl+Z for custom undo
-    scene.addEventFilter(KeyEvent.KEY_PRESSED, event -> {
-        if (new KeyCodeCombination(KeyCode.Z, KeyCombination.CONTROL_DOWN).match(event)) {
-            event.consume();  // Prevents the default undo behavior of HTMLEditor
-            undo();
-        }
-    });
+        // Override Ctrl+Z for custom undo
+        scene.addEventFilter(KeyEvent.KEY_PRESSED, event -> {
+            if (new KeyCodeCombination(KeyCode.Z, KeyCombination.CONTROL_DOWN).match(event)) {
+                event.consume();  // Prevents the default undo behavior of HTMLEditor
+                undo();
+            }
+        });
 
-    // Ctrl+Y for redo
-    scene.getAccelerators().put(new KeyCodeCombination(KeyCode.Y, KeyCombination.CONTROL_DOWN), this::redo);
-}
-
+        // Ctrl+Y for redo
+        scene.getAccelerators().put(new KeyCodeCombination(KeyCode.Y, KeyCombination.CONTROL_DOWN), this::redo);
+    }
 
 
     public void saveState() {

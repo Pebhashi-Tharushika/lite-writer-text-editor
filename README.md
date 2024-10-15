@@ -67,7 +67,8 @@ The toolbar allows users to apply various formatting options to the text, includ
 <br><br>
 - Text formatting & scrollable text area
 ![](asset/text-formatting-and-scrollable-text-area.gif)
-
+- Find and replace
+![](asset/find-replace.gif)
   
 ## Version
 v1.0.0
